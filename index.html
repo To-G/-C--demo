@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>趣C · 变量与赋值</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111827;
+  color: #e5e7eb;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+h1 { font-size: 17px; color: #93c5fd; margin-bottom: 10px; letter-spacing: 2px; }
+
+.level-nav { display: flex; gap: 6px; margin-bottom: 12px; }
+.level-btn {
+  padding: 4px 14px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+.level-btn.active { border-color: #60a5fa; color: #60a5fa; background: #1e3a5f; }
+
+.layout { display: flex; gap: 14px; width: 900px; }
+
+canvas { border: 1px solid #1f2937; border-radius: 6px; flex-shrink: 0; }
+
+.panel { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+
+.task {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #d1d5db;
+}
+.task strong { color: #fbbf24; }
+.task code { color: #86efac; background: #0f2a1a; padding: 1px 4px; border-radius: 3px; }
+
+.code-block {
+  background: #0d1b2a;
+  border: 1px solid #1e3a5f;
+  font-size: 13px;
+  padding: 7px 12px;
+  color: #6b7280;
+  white-space: pre;
+  line-height: 1.5;
+}
+.code-block.top { border-radius: 6px 6px 0 0; border-bottom: none; }
+.code-block.bot { border-radius: 0 0 6px 6px; border-top: 1px dashed #1e3a5f; color: #fbbf24; }
+.code-block.hidden { display: none; }
+
+textarea {
+  width: 100%;
+  background: #0d1b2a;
+  border: 1px solid #1e3a5f;
+  color: #e2e8f0;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  padding: 8px 12px;
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+  border-radius: 0;
+}
+textarea:focus { border-color: #3b82f6; }
+/* connect blocks */
+.editor-group { display: flex; flex-direction: column; }
+
+.run-btn {
+  padding: 9px;
+  background: #2563eb;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: monospace;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+.run-btn:hover { background: #3b82f6; }
+.run-btn:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+
+.msg {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  min-height: 34px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+.msg.ok  { border-color: #34d399; color: #34d399; background: #0a2e1e; }
+.msg.err { border-color: #f87171; color: #f87171; background: #2d1010; }
+.msg.hint{ border-color: #fbbf24; color: #fbbf24; background: #2d2010; }
+</style>
+</head>
+<body>
+<h1>趣C · 变量与赋值</h1>
+<div class="level-nav">
+  <button class="level-btn" onclick="go(2)">关卡 2</button>
+  <button class="level-btn" onclick="go(3)">关卡 3</button>
+</div>
+<div class="layout">
+  <canvas id="cv" width="540" height="300"></canvas>
+  <div class="panel">
+    <div class="task" id="task"></div>
+    <div class="editor-group">
+      <div class="code-block top" id="preCode"></div>
+      <textarea id="ed" rows="4" spellcheck="false"></textarea>
+      <div class="code-block bot" id="postCode"></div>
+    </div>
+    <button class="run-btn" id="runBtn" onclick="run()">▶  运行</button>
+    <div class="msg" id="msg">写好代码，点击运行</div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const cx = cv.getContext('2d');
+const W = 540, H = 300;
+const GY = 215; // ground y (road surface)
+
+// ─── LEVEL CONFIG ──────────────────────────────────────────────────────────────
+const LEVELS = {
+  2: {
+    pits: [{ x: 270, w: 80, depth: 3 }],
+    unitH: 22,
+    task: '路上有一个深度为 <strong>3</strong> 的坑。<br>给变量 <code>c</code> 赋值，再用 <code>fill(c)</code> 填平它，让角色安全通过。',
+    pre: null,
+    post: 'fill(c);',
+    placeholder: 'int c;\nc = ?;',
+    editorRows: 3,
+  },
+  3: {
+    pits: [{ x: 180, w: 80, depth: 3 }, { x: 370, w: 80, depth: 5 }],
+    unitH: 18,
+    task: '路上有 <strong>两个坑</strong>，深度分别是 <strong>3</strong> 和 <strong>5</strong>。<br>同一辆矿车装两次：先装 3 填第一个坑，再装 5 填第二个坑。',
+    pre: 'int c;',
+    post: null,
+    placeholder: 'c = ?;\nfill(c);\nc = ?;\nfill(c);',
+    editorRows: 5,
+  },
+};
+
+let curLevel = null;
+let busy = false;
+
+function go(lv) {
+  curLevel = lv;
+  const cfg = LEVELS[lv];
+  document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.level-btn')[lv - 2].classList.add('active');
+
+  document.getElementById('task').innerHTML = cfg.task;
+
+  const preEl = document.getElementById('preCode');
+  if (cfg.pre) { preEl.textContent = cfg.pre; preEl.classList.remove('hidden'); }
+  else preEl.classList.add('hidden');
+
+  const postEl = document.getElementById('postCode');
+  if (cfg.post) { postEl.textContent = cfg.post; postEl.classList.remove('hidden'); }
+  else postEl.classList.add('hidden');
+
+  const ed = document.getElementById('ed');
+  ed.value = '';
+  ed.placeholder = cfg.placeholder;
+  ed.rows = cfg.editorRows;
+
+  setMsg('写好代码，点击运行', '');
+  document.getElementById('runBtn').disabled = false;
+  busy = false;
+  drawIdle(cfg);
+}
+
+// ─── PARSER ────────────────────────────────────────────────────────────────────
+function parse(raw, lv) {
+  const cfg = LEVELS[lv];
+  const full = (cfg.pre || '') + '\n' + raw + '\n' + (cfg.post || '');
+
+  if (!/\bint\s+c\s*;/.test(full))
+    return { ok: false, msg: '缺少变量声明：int c;' };
+
+  // collect assignments and fill calls in order
+  const tokens = [];
+  const re = /\bc\s*=\s*(\d+)\s*;|\bfill\s*\(\s*c\s*\)\s*;/g;
+  let m;
+  while ((m = re.exec(full)) !== null) {
+    if (m[0].startsWith('fill')) tokens.push({ type: 'fill' });
+    else tokens.push({ type: 'assign', val: parseInt(m[1]) });
+  }
+
+  // simulate execution: track c value and dump sequence
+  let c = null, initialized = false;
+  const dumps = []; // {val} per fill call
+  for (const t of tokens) {
+    if (t.type === 'assign') { c = t.val; initialized = true; }
+    else {
+      if (!initialized) return { ok: false, msg: 'fill(c) 被调用时 c 还没有赋值' };
+      dumps.push(c);
+    }
+  }
+
+  const n = cfg.pits.length;
+  if (dumps.length === 0)
+    return { ok: false, msg: '没有调用 fill(c)' + (cfg.post ? '（预置代码里已经有了）' : '') };
+  if (dumps.length < n)
+    return { ok: false, msg: `需要 ${n} 次 fill(c)，目前只有 ${dumps.length} 次` };
+
+  return { ok: true, dumps: dumps.slice(0, n) };
+}
+
+// ─── ANIMATION ─────────────────────────────────────────────────────────────────
+// Frame: { draw fn, dur ms }
+// We build a flat array of frames and replay them with setTimeout chains.
+
+function run() {
+  if (busy) return;
+  const raw = document.getElementById('ed').value;
+  const result = parse(raw, curLevel);
+  if (!result.ok) { setMsg(result.msg, 'err'); return; }
+
+  const cfg = LEVELS[curLevel];
+  const dumps = result.dumps;
+  const allOk = dumps.every((v, i) => v === cfg.pits[i].depth);
+
+  // feedback text
+  if (allOk) {
+    setMsg('全部填平，角色安全通过！', 'ok');
+  } else {
+    const parts = dumps.map((v, i) => {
+      const d = cfg.pits[i].depth;
+      if (v === d) return `坑${i+1}：✓`;
+      if (v < d) return `坑${i+1}：填了 ${v}，少了 ${d-v}`;
+      return `坑${i+1}：填了 ${v}，多了 ${v-d}（溢出）`;
+    });
+    setMsg(parts.join('　'), 'hint');
+  }
+
+  busy = true;
+  document.getElementById('runBtn').disabled = true;
+
+  const frames = buildFrames(cfg, dumps, allOk);
+  playFrames(frames, () => {
+    busy = false;
+    document.getElementById('runBtn').disabled = false;
+  });
+}
+
+function playFrames(frames, done) {
+  let i = 0;
+  function next() {
+    if (i >= frames.length) { done(); return; }
+    const f = frames[i++];
+    f.draw();
+    setTimeout(next, f.dur);
+  }
+  next();
+}
+
+// ─── FRAME BUILDER ─────────────────────────────────────────────────────────────
+function buildFrames(cfg, dumps, allOk) {
+  const frames = [];
+  const CART_HOME = 50;
+  const CHAR_START = 20;
+  const pitFills = cfg.pits.map(() => 0);
+
+  function fr(drawFn, dur) { frames.push({ draw: drawFn, dur }); }
+  function snap(cartX, cartLoad, cartTilt, charX, charDrop, pf) {
+    const pfc = [...pf];
+    fr(() => drawAll(cfg, pfc, cartX, cartLoad, cartTilt, charX, charDrop), 0);
+  }
+
+  // idle start
+  for (let k = 0; k < 3; k++) snap(CART_HOME, 0, 0, CHAR_START, 0, pitFills);
+  frames[frames.length-1].dur = 200;
+
+  for (let pi = 0; pi < dumps.length; pi++) {
+    const val = dumps[pi];
+    const pitX = cfg.pits[pi].x;
+
+    // load cart (count up)
+    const pfLoad = [...pitFills];
+    for (let v = 0; v <= val; v++) {
+      fr(() => drawAll(cfg, pfLoad, CART_HOME, v, 0, CHAR_START, 0), v === val ? 300 : 70);
+    }
+
+    // move cart to pit
+    const pfMove = [...pitFills];
+    lerp(CART_HOME, pitX, 20, 22, cartXPos => {
+      fr(() => drawAll(cfg, pfMove, cartXPos, val, 0, CHAR_START, 0), 22);
+    });
+
+    // tilt & dump
+    for (let t = 0; t <= 10; t++) {
+      const tilt = t * 7;
+      const load = Math.round(val * (1 - t / 10));
+      const pf2 = [...pitFills];
+      pf2[pi] = Math.round(val * (t / 10));
+      fr(() => drawAll(cfg, pf2, pitX, load, tilt, CHAR_START, 0), 55);
+    }
+    pitFills[pi] = val;
+
+    // pause after dump
+    for (let k = 0; k < 3; k++) snap(pitX, 0, 70, CHAR_START, 0, pitFills);
+    frames[frames.length-1].dur = 180;
+
+    // right cart back upright
+    for (let t = 10; t >= 0; t--) {
+      fr(() => drawAll(cfg, [...pitFills], pitX, 0, t * 7, CHAR_START, 0), 35);
+    }
+
+    // move cart home
+    lerp(pitX, CART_HOME, 16, 20, cx => {
+      fr(() => drawAll(cfg, [...pitFills], cx, 0, 0, CHAR_START, 0), 20);
+    });
+    frames[frames.length-1].dur = 200;
+  }
+
+  if (allOk) {
+    // walk to end
+    const endX = W - 24;
+    lerp(CHAR_START, endX, 45, 28, cx => {
+      fr(() => drawAll(cfg, [...pitFills], CART_HOME, 0, 0, cx, 0), 28);
+    });
+    // bob at end
+    for (let k = 0; k < 6; k++) {
+      fr(() => drawAll(cfg, [...pitFills], CART_HOME, 0, 0, endX, k % 2 === 0 ? -4 : 0), 120);
+    }
+  } else {
+    // walk toward first bad pit, then fall
+    const badI = dumps.findIndex((v, i) => v !== cfg.pits[i].depth);
+    const fallX = cfg.pits[badI].x;
+    lerp(CHAR_START, fallX, 25, 28, cx => {
+      fr(() => drawAll(cfg, [...pitFills], CART_HOME, 0, 0, cx, 0), 28);
+    });
+    // fall into pit
+    for (let k = 0; k <= 8; k++) {
+      const drop = k * 8;
+      fr(() => drawAll(cfg, [...pitFills], CART_HOME, 0, 0, fallX, drop), 55);
+    }
+    for (let k = 0; k < 4; k++) {
+      fr(() => drawAll(cfg, [...pitFills], CART_HOME, 0, 0, fallX, 64), 100);
+    }
+  }
+
+  return frames;
+}
+
+function lerp(a, b, steps, dur, cb) {
+  for (let i = 0; i <= steps; i++) {
+    const v = a + (b - a) * (i / steps);
+    cb(v);
+  }
+}
+
+// ─── DRAWING ───────────────────────────────────────────────────────────────────
+function drawIdle(cfg) {
+  drawAll(cfg, cfg.pits.map(() => 0), 50, 0, 0, 20, 0);
+}
+
+function drawAll(cfg, pitFills, cartX, cartLoad, cartTilt, charX, charDrop) {
+  cx.clearRect(0, 0, W, H);
+
+  // sky
+  const sky = cx.createLinearGradient(0, 0, 0, GY);
+  sky.addColorStop(0, '#0c1a30');
+  sky.addColorStop(1, '#112244');
+  cx.fillStyle = sky;
+  cx.fillRect(0, 0, W, GY);
+
+  // ground
+  cx.fillStyle = '#3b2a1a';
+  cx.fillRect(0, GY, W, H - GY);
+
+  // road
+  cx.fillStyle = '#7a6248';
+  cx.fillRect(0, GY - 8, W, 8);
+
+  // draw each pit
+  cfg.pits.forEach((pit, i) => {
+    drawPit(pit, cfg.unitH, pitFills[i]);
+  });
+
+  // road stripe (dashes)
+  cx.strokeStyle = '#5a4a38';
+  cx.setLineDash([12, 12]);
+  cx.lineWidth = 1;
+  cx.beginPath();
+  cx.moveTo(0, GY - 12);
+  cx.lineTo(W, GY - 12);
+  cx.stroke();
+  cx.setLineDash([]);
+
+  // cart
+  drawCart(cartX, GY - 8, cartLoad, cartTilt);
+
+  // character (drawn after cart so it's on top)
+  if (charDrop < 60) drawChar(charX, GY - 8, charDrop);
+}
+
+function drawPit(pit, unitH, fillAmt) {
+  const px = pit.x - pit.w / 2;
+  const py = GY - 8;
+  const ph = pit.depth * unitH;
+  const pw = pit.w;
+
+  // hole
+  cx.fillStyle = '#0d0806';
+  cx.fillRect(px, py, pw, ph);
+
+  // fill material
+  const clamp = Math.min(fillAmt, pit.depth);
+  if (clamp > 0) {
+    const fh = clamp * unitH;
+    const grad = cx.createLinearGradient(0, py + ph - fh, 0, py + ph);
+    grad.addColorStop(0, '#c9945a');
+    grad.addColorStop(1, '#8b6239');
+    cx.fillStyle = grad;
+    cx.fillRect(px, py + ph - fh, pw, fh);
+  }
+
+  // overflow mound
+  if (fillAmt > pit.depth) {
+    const over = fillAmt - pit.depth;
+    cx.fillStyle = '#c9945a';
+    cx.beginPath();
+    const mh = Math.min(over * unitH * 0.7, 28);
+    cx.ellipse(pit.x, py, pw * 0.55 + over * 6, mh, 0, Math.PI, 0);
+    cx.fill();
+  }
+
+  // pit walls
+  cx.strokeStyle = '#1a0f08';
+  cx.lineWidth = 1.5;
+  cx.strokeRect(px, py, pw, ph);
+
+  // depth ruler (right wall) — only show when not fully filled
+  if (fillAmt < pit.depth) {
+    for (let d = 1; d <= pit.depth; d++) {
+      const ry = py + d * unitH;
+      cx.fillStyle = '#5a4a38';
+      cx.fillRect(px + pw - 8, ry - 1, 7, 1);
+      cx.fillStyle = '#a07050';
+      cx.font = '9px monospace';
+      cx.textAlign = 'right';
+      cx.fillText(d, px + pw - 10, ry + 3);
+    }
+    // depth label
+    cx.fillStyle = '#d4a76a';
+    cx.font = 'bold 12px monospace';
+    cx.textAlign = 'center';
+    cx.fillText('深=' + pit.depth, pit.x, py + ph / 2 + 5);
+  }
+}
+
+function drawCart(x, groundY, load, tiltDeg) {
+  cx.save();
+  cx.translate(x, groundY - 2);
+  cx.rotate(tiltDeg * Math.PI / 180);
+
+  // body trapezoid
+  cx.fillStyle = '#6d28d9';
+  cx.beginPath();
+  cx.moveTo(-22, 2); cx.lineTo(-26, -18); cx.lineTo(26, -18); cx.lineTo(22, 2);
+  cx.closePath(); cx.fill();
+  cx.strokeStyle = '#a78bfa'; cx.lineWidth = 1.5; cx.stroke();
+
+  // axle
+  cx.strokeStyle = '#4c1d95'; cx.lineWidth = 2;
+  cx.beginPath(); cx.moveTo(-18, 2); cx.lineTo(18, 2); cx.stroke();
+
+  // wheels
+  [[-14, 5], [14, 5]].forEach(([wx, wy]) => {
+    cx.fillStyle = '#4c1d95';
+    cx.beginPath(); cx.arc(wx, wy, 5, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = '#a78bfa'; cx.lineWidth = 1;
+    cx.beginPath(); cx.arc(wx, wy, 5, 0, Math.PI * 2); cx.stroke();
+    // spoke
+    cx.strokeStyle = '#7c3aed'; cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(wx - 4, wy); cx.lineTo(wx + 4, wy); cx.stroke();
+    cx.beginPath(); cx.moveTo(wx, wy - 4); cx.lineTo(wx, wy + 4); cx.stroke();
+  });
+
+  // load fill
+  if (load > 0) {
+    const maxLoad = 8;
+    const fh = Math.min(load / maxLoad, 1) * 16;
+    const lg = cx.createLinearGradient(0, -18 + (16 - fh), 0, -18 + 16);
+    lg.addColorStop(0, '#fde68a');
+    lg.addColorStop(1, '#d97706');
+    cx.fillStyle = lg;
+    cx.fillRect(-20, -18 + (16 - fh), 40, fh);
+    // number
+    cx.fillStyle = '#1a0a00';
+    cx.font = 'bold 11px monospace';
+    cx.textAlign = 'center';
+    cx.fillText(load, 0, -8);
+  } else if (tiltDeg < 10) {
+    cx.fillStyle = '#5b21b6';
+    cx.font = '9px monospace';
+    cx.textAlign = 'center';
+    cx.fillText('空', 0, -8);
+  }
+
+  // variable label "c =" above cart
+  cx.fillStyle = '#c4b5fd';
+  cx.font = 'bold 10px monospace';
+  cx.textAlign = 'center';
+  cx.fillText('c', 0, -28);
+
+  cx.restore();
+}
+
+function drawChar(x, groundY, drop) {
+  const y = groundY - drop * 0.5 + drop; // sinks into pit
+  // actually just use drop directly as downward offset
+  cx.save();
+  cx.translate(x, groundY + drop);
+
+  // shadow (only when not falling)
+  if (drop === 0) {
+    cx.fillStyle = 'rgba(0,0,0,0.3)';
+    cx.beginPath();
+    cx.ellipse(0, 2, 9, 3, 0, 0, Math.PI * 2);
+    cx.fill();
+  }
+
+  // legs
+  cx.fillStyle = '#1e3a5f';
+  cx.fillRect(-7, -14, 5, 13);
+  cx.fillRect(2, -14, 5, 13);
+
+  // body
+  cx.fillStyle = '#ef4444';
+  cx.fillRect(-7, -28, 14, 15);
+
+  // head
+  cx.fillStyle = '#fde68a';
+  cx.beginPath();
+  cx.arc(0, -35, 8, 0, Math.PI * 2);
+  cx.fill();
+
+  // eyes
+  cx.fillStyle = drop > 20 ? '#1f2937' : '#1e3a5f';
+  cx.fillRect(-3, -37, 2, 2);
+  cx.fillRect(1, -37, 2, 2);
+
+  // mouth (smile vs uh-oh)
+  cx.strokeStyle = '#92400e';
+  cx.lineWidth = 1.2;
+  cx.beginPath();
+  if (drop > 0) {
+    cx.arc(0, -32, 3, 0, Math.PI); // sad arc
+  } else {
+    cx.arc(0, -34, 3, Math.PI, 0); // smile
+  }
+  cx.stroke();
+
+  cx.restore();
+}
+
+// ─── UTILS ─────────────────────────────────────────────────────────────────────
+function setMsg(text, cls) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────────
+go(2);
+</script>
+</body>
+</html>

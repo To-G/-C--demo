@@ -1,0 +1,350 @@
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  .wrap{padding:1rem 0;font-family:var(--font-mono)}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:5px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);cursor:pointer;font-family:var(--font-mono);font-size:13px}
+  .tab.on{background:#FAEEDA;border-color:#BA7517;color:#633806;font-weight:500}
+  .layout{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .cpanel{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:16px;min-width:275px;flex:0 0 auto}
+  .clabel{font-size:11px;color:var(--color-text-tertiary);margin-bottom:10px}
+  .cl{display:flex;align-items:center;line-height:2.1;font-size:13px}
+  .ln{width:18px;text-align:right;color:var(--color-text-tertiary);margin-right:12px;flex-shrink:0;user-select:none;font-size:11px}
+  .cb{padding-left:12px;color:var(--color-text-secondary)}
+  .hl{background:#FAEEDA;border:0.5px solid #BA7517;border-radius:4px;padding:0 8px;display:inline-flex;align-items:center;gap:3px}
+  .vi{width:32px;background:transparent;border:none;outline:none;color:#633806;font-family:var(--font-mono);font-size:13px;text-align:center;font-weight:500}
+  .run{margin-top:14px;width:100%;padding:9px;background:#3B6D11;color:#EAF3DE;border:none;border-radius:var(--border-radius-md);cursor:pointer;font-family:var(--font-mono);font-size:13px;font-weight:500}
+  .run:disabled{background:var(--color-background-tertiary);color:var(--color-text-tertiary);cursor:not-allowed}
+  .rst{margin-top:6px;width:100%;padding:7px;background:transparent;color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);cursor:pointer;font-family:var(--font-mono);font-size:13px}
+  .swrap{flex:1 1 380px;min-width:360px}
+  .sc{width:100%;display:block;border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary)}
+  .frow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .chip{border-radius:var(--border-radius-md);padding:6px 12px;font-size:12px;border:0.5px solid;font-family:var(--font-mono)}
+  .cok{border-color:#3B6D11;color:#3B6D11;background:#EAF3DE}
+  .clo{border-color:#993C1D;color:#993C1D;background:#FAECE7}
+  .chi{border-color:#854F0B;color:#854F0B;background:#FAEEDA}
+  .kw1{color:#7F77DD}.kw2{color:#BA7517}.kw3{color:#185FA5}.kw4{color:#993C1D}.kw5{color:#0F6E56}.kw6{color:#3B6D11}.kw7{color:#633806}
+  </style>
+  
+  <div class="wrap">
+  <div class="tabs">
+    <button class="tab on" id="b2" onclick="setLv(2)">关卡 2</button>
+    <button class="tab" id="b3" onclick="setLv(3)">关卡 3</button>
+  </div>
+  <div class="layout">
+    <div class="cpanel">
+      <div class="clabel">main.cpp — C++</div>
+      <div id="cblock"></div>
+      <button class="run" id="rbtn" onclick="go()" disabled>▶ 运行</button>
+      <button class="rst" id="rstbtn" style="display:none" onclick="resetAll()">重置</button>
+    </div>
+    <div class="swrap">
+      <svg id="scene" class="sc" viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="frow" id="frow"></div>
+    </div>
+  </div>
+  </div>
+  
+  <script>
+  const GY=175,BS=20,SW=500,SH=300;
+  const PA={cx:195,w:80,depth:3};
+  const PB={cx:360,w:96,depth:5};
+  let lv=2,vA='',vB='',busy=false,fin=false;
+  const sl=ms=>new Promise(r=>setTimeout(r,ms));
+  
+  function setLv(l){
+    lv=l;
+    document.getElementById('b2').classList.toggle('on',l===2);
+    document.getElementById('b3').classList.toggle('on',l===3);
+    resetAll();
+  }
+  
+  function renderCode(){
+    const el=document.getElementById('cblock');
+    const L=(n,c)=>`<div class="cl"><span class="ln">${n}</span><span class="cb">${c}</span></div>`;
+    const H=(n,c)=>`<div class="cl"><span class="ln">${n}</span><div style="padding-left:12px">${c}</div></div>`;
+    const iA=`<div class="hl"><span class="kw3">a</span><span style="color:var(--color-text-secondary)"> = </span><input class="vi" type="number" min="0" max="12" value="${vA}" placeholder="?" id="ia" oninput="vA=this.value;chkBtn()"><span style="color:var(--color-text-secondary)">;</span></div>`;
+    const iB=`<div class="hl"><span class="kw3">b</span><span style="color:var(--color-text-secondary)"> = </span><input class="vi" type="number" min="0" max="12" value="${vB}" placeholder="?" id="ib" oninput="vB=this.value;chkBtn()"><span style="color:var(--color-text-secondary)">;</span></div>`;
+    let h='';
+    h+=L(1,`<span class="kw5">#include</span> <span class="kw6">&lt;iostream&gt;</span>`);
+    h+=L(2,`<span class="kw5">#include</span> <span class="kw6">&lt;hetao.h&gt;</span>`);
+    h+=L(3,`<span class="kw5">using namespace</span> <span class="kw3">std</span>;`);
+    h+=L(4,`<span class="kw1">int</span> <span class="kw2">main</span>() {`);
+    h+=H(5,`<div class="hl"><span class="kw1">int</span> <span class="kw3">a</span>;</div>`);
+    h+=H(6,iA);
+    if(lv===3){
+      h+=H(7,`<div class="hl"><span class="kw1">int</span> <span class="kw3">b</span>;</div>`);
+      h+=H(8,iB);
+    }
+    const b=lv===3?9:7;
+    h+=L(b,`<span style="padding-left:12px"><span class="kw2">put</span>(<span class="kw3">a</span>);</span>`);
+    if(lv===3) h+=L(b+1,`<span style="padding-left:12px"><span class="kw2">put</span>(<span class="kw3">b</span>);</span>`);
+    h+=L(lv===3?11:8,`<span style="padding-left:12px"><span class="kw4">return</span> <span class="kw7">0</span>;</span>`);
+    h+=L(lv===3?12:9,`}`);
+    el.innerHTML=h;
+  }
+  
+  function chkBtn(){
+    const ok=vA!==''&&!isNaN(+vA)&&(lv===2||(vB!==''&&!isNaN(+vB)));
+    document.getElementById('rbtn').disabled=busy||!ok;
+  }
+  
+  function initScene(){
+    const svg=document.getElementById('scene');
+    let h='';
+    
+    h+=`<rect width="500" height="300" fill="#E6F1FB"/>`;
+    h+=`<ellipse cx="80" cy="38" rx="36" ry="13" fill="white" opacity="0.45"/>`;
+    h+=`<ellipse cx="104" cy="30" rx="25" ry="10" fill="white" opacity="0.45"/>`;
+    h+=`<ellipse cx="400" cy="50" rx="40" ry="15" fill="white" opacity="0.4"/>`;
+    
+    h+=`<rect x="0" y="${GY}" width="500" height="${SH-GY}" fill="#EF9F27"/>`;
+    h+=`<rect x="0" y="${GY}" width="500" height="5" fill="#FAC775"/>`;
+    
+    for(let i=0;i<6;i++){
+      const bx=10+(i%3)*(BS+2),by=GY-(Math.floor(i/3)+1)*BS;
+      h+=`<rect x="${bx}" y="${by}" width="${BS}" height="${BS}" fill="#D85A30" stroke="#993C1D" stroke-width="1.5" rx="2"/>`;
+    }
+    h+=`<text x="32" y="${GY+16}" text-anchor="middle" fill="#854F0B" font-size="11" font-family="monospace">材料堆</text>`;
+    
+    h+=pitWalls(PA,true);
+    if(lv===3) h+=pitWalls(PB,false);
+    h+=`<text x="${PA.cx}" y="${GY+PA.depth*BS+17}" text-anchor="middle" fill="#854F0B" font-size="12" font-family="monospace">坑 A</text>`;
+    if(lv===3) h+=`<text x="${PB.cx}" y="${GY+PB.depth*BS+17}" text-anchor="middle" fill="#854F0B" font-size="12" font-family="monospace">坑 B</text>`;
+    
+    h+=`<g id="paBlocks"></g><g id="pbBlocks"></g><g id="paRes"></g><g id="pbRes"></g>`;
+    h+=`<g id="banner" style="display:none"><rect x="105" y="50" width="290" height="40" rx="6" fill="#EAF3DE" stroke="#3B6D11" stroke-width="1"/><text x="250" y="75" text-anchor="middle" fill="#27500A" font-size="14" font-weight="500" font-family="monospace">全部填满了！太棒了！</text></g>`;
+    
+    // 起重机容器，取消了CSS硬编码的transition，完全由JS接管物理动画
+    h+=`<g id="svgTrolley" transform="translate(0, ${GY}) rotate(0)">`;
+    h+=`<rect x="-60" y="-22" width="100" height="22" rx="10" fill="#3D383D" stroke="#2A2B2E" stroke-width="2"/>`;
+    for(let i=0; i<6; i++) h+=`<circle cx="${-48 + i*15.5}" cy="-11" r="5" fill="#CB5631" stroke="#2A2B2E" stroke-width="1.5"/>`;
+    h+=`<rect x="-45" y="-30" width="70" height="10" fill="#5E5B60" stroke="#2A2B2E" stroke-width="2"/>`; 
+    h+=`<rect x="-50" y="-60" width="45" height="30" fill="#E78B3F" stroke="#2A2B2E" stroke-width="2"/>`; 
+    h+=`<rect x="-50" y="-45" width="45" height="15" fill="#CB5631" stroke="#2A2B2E" stroke-width="2"/>`; 
+    for(let i=0; i<4; i++) h+=`<line x1="-45" y1="${-55 + i*4}" x2="-30" y2="${-55 + i*4}" stroke="#2A2B2E" stroke-width="1.5"/>`;
+    h+=`<rect x="-5" y="-65" width="22" height="35" fill="#DEDCDF" stroke="#2A2B2E" stroke-width="2"/>`;
+    h+=`<rect x="-5" y="-45" width="22" height="15" fill="#CB5631" stroke="#2A2B2E" stroke-width="2"/>`;
+    h+=`<polygon points="-1,-62 13,-62 13,-40 4,-40 -1,-45" fill="#2A2B2E"/>`; 
+    h+=`<line x1="-15" y1="-60" x2="-25" y2="-105" stroke="#686C76" stroke-width="6" stroke-linecap="round"/>`;
+    h+=`<line x1="-25" y1="-105" x2="5" y2="-60" stroke="#686C76" stroke-width="5"/>`;
+    h+=`<circle cx="-25" cy="-105" r="4" fill="#CB5631" stroke="#2A2B2E" stroke-width="1.5"/>`; 
+    h+=`<polygon points="10,-35 5,-45 85,-140 95,-135" fill="#C1C6CB" stroke="#2A2B2E" stroke-width="2"/>`;
+    h+=`<line x1="12" y1="-43" x2="90" y2="-137" stroke="#686C76" stroke-width="1"/>`; 
+    h+=`<path d="M 12,-43 L 20,-50 L 17,-55 M 25,-55 L 35,-65 L 30,-72 M 40,-75 L 50,-88 L 45,-95 M 55,-98 L 65,-110 L 60,-115 M 70,-118 L 80,-130" fill="none" stroke="#686C76" stroke-width="1.5"/>`;
+    h+=`<circle cx="90" cy="-137" r="5" fill="#CB5631" stroke="#2A2B2E" stroke-width="1.5"/>`; 
+    h+=`<line x1="-25" y1="-105" x2="88" y2="-137" stroke="#57595D" stroke-width="1.5"/>`;
+    h+=`<line x1="-25" y1="-100" x2="88" y2="-134" stroke="#57595D" stroke-width="1"/>`;
+    h+=`<line x1="90" y1="-137" x2="90" y2="-35" stroke="#57595D" stroke-width="2"/>`; 
+    h+=`<rect x="82" y="-35" width="16" height="18" rx="2" fill="#E78B3F" stroke="#2A2B2E" stroke-width="2"/>`;
+    h+=`<line x1="83" y1="-30" x2="97" y2="-20" stroke="#2A2B2E" stroke-width="3"/>`; 
+    h+=`<line x1="83" y1="-23" x2="92" y2="-17" stroke="#2A2B2E" stroke-width="3"/>`;
+    h+=`<path d="M 90,-17 C 90,-5 98,-5 98,-10" fill="none" stroke="#5E5B60" stroke-width="3" stroke-linecap="round"/>`; 
+    h+=`<rect x="75" y="-5" width="30" height="3" fill="#5E5B60" rx="1"/>`;
+    h+=`<g id="hookPayload"></g>`;
+    h+=`</g>`;
+    
+    svg.innerHTML=h;
+    moveTrolley(-20, GY, 0, '0s'); // 初始化无动画瞬移
+  }
+  
+  // 封装含时间维度的物理移动函数
+  function moveTrolley(tx, ty=GY, rot=0, dur='0.8s'){
+    const t = document.getElementById('svgTrolley');
+    if(t) {
+      t.style.transition = `transform ${dur} ease-in-out`;
+      // 本地坐标系下，吊钩偏移量为90。旋转中心在履带底部中心(0,0)
+      t.setAttribute('transform',`translate(${tx-90}, ${ty}) rotate(${rot})`);
+    }
+  }
+  
+  function setHook(val) {
+    const hp = document.getElementById('hookPayload');
+    if (!hp) return;
+    if (val === 0 || isNaN(val)) { hp.innerHTML = ''; return; }
+    let h = '';
+    for(let i=0; i<val; i++) {
+      const bx = 76 + (i%3)*10;
+      const by = -16 - Math.floor(i/3)*11;
+      h += `<rect x="${bx}" y="${by}" width="8" height="10" fill="#D85A30" stroke="#993C1D" rx="1"/>`;
+    }
+    hp.innerHTML = h;
+  }
+  
+  function pitWalls(p,showNum){
+    const lx=p.cx-p.w/2;
+    let h='';
+    h+=`<rect x="${lx}" y="${GY}" width="${p.w}" height="${p.depth*BS}" fill="#2C2C2A"/>`;
+    h+=`<rect x="${lx}" y="${GY}" width="4" height="${p.depth*BS}" fill="#444241"/>`;
+    h+=`<rect x="${lx+p.w-4}" y="${GY}" width="4" height="${p.depth*BS}" fill="#444241"/>`;
+    h+=`<rect x="${lx}" y="${GY+p.depth*BS-3}" width="${p.w}" height="3" fill="#444241"/>`;
+    if(showNum) h+=`<text id="${p===PA?'adepth':'bdepth'}" x="${p.cx}" y="${GY+p.depth*BS/2+7}" text-anchor="middle" fill="#5F5E5A" font-size="20" font-weight="500" font-family="monospace">${p.depth}</text>`;
+    return h;
+  }
+  
+  function fillPitBlocks(gid, pit, fill){
+    const bg = document.getElementById(gid);
+    const dp = document.getElementById(pit===PA?'adepth':'bdepth');
+    if(dp && fill>0) dp.style.display='none';
+    let bh = '';
+    const lx = pit.cx - pit.w/2;
+    for(let i=0; i<Math.min(fill, pit.depth+2); i++){
+      const by = GY + pit.depth*BS - (i+1)*BS;
+      bh += `<rect id="${gid}_blk_${i}" x="${lx+3}" y="${by+2}" width="${pit.w-6}" height="${BS-4}" fill="#D85A30" stroke="#993C1D" stroke-width="1.5" rx="2"/>`;
+    }
+    if(bg) bg.innerHTML = bh;
+  }
+  
+  function showPitResult(gid, rid, pit, res, fill){
+    const rg = document.getElementById(rid);
+    for(let i=0; i<Math.min(fill, pit.depth+2); i++){
+      const blk = document.getElementById(`${gid}_blk_${i}`);
+      if(blk){
+        const ov = i >= pit.depth;
+        const fc = ov ? '#D85A30' : res === 'ok' ? '#639922' : '#D85A30';
+        const sc = ov ? '#993C1D' : res === 'ok' ? '#3B6D11' : '#993C1D';
+        blk.setAttribute('fill', fc);
+        blk.setAttribute('stroke', sc);
+      }
+    }
+    let rh = '';
+    if(res==='ok') rh+=`<text x="${pit.cx}" y="${GY-10}" text-anchor="middle" fill="#3B6D11" font-size="16" font-weight="500">✓</text>`;
+    else if(res==='low'&&fill>0) rh+=`<text x="${pit.cx}" y="${GY-8}" text-anchor="middle" fill="#993C1D" font-size="12" font-weight="500">陷进去了</text>`;
+    else if(res==='high') rh+=`<text x="${pit.cx}" y="${GY-8}" text-anchor="middle" fill="#854F0B" font-size="12" font-weight="500">被挡住了</text>`;
+    if(rg) rg.innerHTML = rh;
+  }
+  
+  // 统一执行结束后的状态归档
+  function finishRun(rA, rB) {
+    busy=false; fin=true;
+    const rbtn=document.getElementById('rbtn');
+    rbtn.textContent='▶ 运行'; rbtn.disabled=false;
+    document.getElementById('rstbtn').style.display='block';
+    
+    if(rA==='ok' && (lv===2 || rB==='ok')){
+       const b=document.getElementById('banner');
+       if(b) b.style.display='block';
+    }
+    
+    const pairs=[[rA,'A'],[rB,'B']].filter(x=>x[0]);
+    document.getElementById('frow').innerHTML=pairs.map(([r,l])=>{
+      const cls=r==='ok'?'cok':r==='low'?'clo':'chi';
+      const msg=r==='ok'?`坑${l}：完美 ✓`:r==='low'?`坑${l}：材料不够，陷进去了`:`坑${l}：太多，被挡住了`;
+      return `<div class="chip ${cls}">${msg}</div>`;
+    }).join('');
+  }
+  
+  // 处理单个坑的物理通行与碰撞检验
+  async function handlePitCrossing(pit, r, fill) {
+    const leftEdge = pit.cx - pit.w/2;
+    
+    if (r === 'high') {
+      // 碰撞物理：开到溢出边缘处停下，模拟撞击感
+      const bumpX = leftEdge + 45; // 计算履带前端与溢出方块接触的极限距离
+      moveTrolley(bumpX, GY, 0, '0.5s'); 
+      await sl(500);
+      moveTrolley(bumpX - 5, GY, 0, '0.2s'); // 轻微回弹
+      await sl(200);
+      return false; // 阻断运行
+    } else if (r === 'low') {
+      // 坠落物理：开到坑上方，失去重心跌落
+      moveTrolley(pit.cx + 50, GY, 0, '0.7s'); // 驶至坑边缘
+      await sl(500);
+      // 根据缺少的方块数计算下坠深度，最大下坠角度12度
+      const dropY = GY + Math.min(pit.depth - fill, 2) * (BS - 2); 
+      moveTrolley(pit.cx + 80, dropY, 12, '0.3s'); // 跌落坑中
+      await sl(400);
+      return false; // 阻断运行
+    } else {
+      // 完美填平：安全驶过
+      moveTrolley(pit.cx + 90, GY, 0, '0.8s');
+      await sl(800);
+      return true; // 允许继续
+    }
+  }
+  
+  async function go(){
+    if(busy) return;
+    const a=+vA,b=+vB;
+    if(isNaN(a)) return;
+    if(lv===3&&isNaN(b)) return;
+    busy=true;fin=false;
+    
+    const rbtn=document.getElementById('rbtn');
+    rbtn.disabled=true;rbtn.textContent='⏳ 运行中...';
+    document.getElementById('rstbtn').style.display='none';
+    document.getElementById('frow').innerHTML='';
+    
+    ['paBlocks','pbBlocks','paRes','pbRes'].forEach(id=>{const g=document.getElementById(id);if(g)g.innerHTML='';});
+    const dpa=document.getElementById('adepth'); if(dpa) dpa.style.display='';
+    const dpb=document.getElementById('bdepth'); if(dpb) dpb.style.display='';
+    const banner=document.getElementById('banner'); if(banner) banner.style.display='none';
+    
+    // 初始化位姿
+    setHook(0);
+    moveTrolley(10, GY, 0, '0.2s');
+    await sl(200);
+    
+    // --- 动作序列: 坑 A ---
+    moveTrolley(40, GY, 0, '0.8s'); // 取料
+    await sl(800);
+    setHook(a);
+    await sl(300);
+  
+    moveTrolley(PA.cx, GY, 0, '1.2s'); // 到达坑A
+    await sl(1200);
+    
+    setHook(0);
+    fillPitBlocks('paBlocks', PA, a);
+    await sl(400);
+  
+    const rA = a===PA.depth ? 'ok' : a<PA.depth ? 'low' : 'high';
+    showPitResult('paBlocks', 'paRes', PA, rA, a);
+    await sl(300);
+  
+    // 物理碰撞检验：如果不通过，直接阻断
+    const passA = await handlePitCrossing(PA, rA, a);
+    if (!passA) {
+       return finishRun(rA, null);
+    }
+  
+    // --- 动作序列: 坑 B ---
+    let rB = null;
+    if(lv===3){
+      moveTrolley(40, GY, 0, '1.8s'); // 倒车取料
+      await sl(1800);
+      setHook(b);
+      await sl(300);
+      
+      moveTrolley(PB.cx, GY, 0, '1.6s'); // 到达坑B
+      await sl(1600);
+      
+      setHook(0);
+      fillPitBlocks('pbBlocks', PB, b);
+      await sl(400);
+  
+      rB = b===PB.depth ? 'ok' : b<PB.depth ? 'low' : 'high';
+      showPitResult('pbBlocks', 'pbRes', PB, rB, b);
+      await sl(300);
+  
+      // 物理碰撞检验 B
+      const passB = await handlePitCrossing(PB, rB, b);
+      if (!passB) {
+         return finishRun(rA, rB);
+      }
+    }
+  
+    finishRun(rA, rB);
+  }
+  
+  function resetAll(){
+    vA='';vB='';busy=false;fin=false;
+    document.getElementById('rstbtn').style.display='none';
+    document.getElementById('frow').innerHTML='';
+    document.getElementById('rbtn').textContent='▶ 运行';
+    renderCode();
+    initScene();
+  }
+  
+  renderCode();
+  initScene();
+  </script>
