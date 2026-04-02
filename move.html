@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Math Runner Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #a0d8ef; /* 浅蓝色背景 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* 阻止默认的触摸滚动 */
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        /* UI 叠加层 */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 让点击穿透到 canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #score-display {
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 30px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #controls-hint {
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.4);
+            padding: 15px 40px;
+            border-radius: 15px;
+            display: flex;
+            gap: 40px;
+            color: #fff;
+            font-weight: bold;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        .hint-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .keys {
+            display: flex;
+            gap: 10px;
+        }
+        .key {
+            background: #fff;
+            color: #aaa;
+            padding: 5px 12px;
+            border-radius: 5px;
+            box-shadow: 0 2px 0 #ddd;
+        }
+        /* 动态玩家数字标签 */
+        #player-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            background-color: #3498db;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 16px;
+            pointer-events: none;
+            transition: transform 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .text-shadow {
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        /* AI 关卡生成器面板 */
+        #ai-panel {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, 0);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+            pointer-events: auto; /* 允许点击穿透 UI 层的限制 */
+            width: 320px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        #ai-panel input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        #ai-panel input:focus {
+            border-color: #9b59b6;
+        }
+        #ai-panel button.action-btn {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        #ai-panel button.action-btn:active {
+            transform: scale(0.95);
+        }
+        #ai-panel button.close-btn {
+            background: transparent;
+            color: #999;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        #ai-panel button.close-btn:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container"></div>
+    
+    <div id="ui-layer">
+        <div id="score-display">当前人群: <span id="score-value">1</span></div>
+        <div id="player-label">1</div>
+        
+        <button id="open-ai-btn" onclick="document.getElementById('ai-panel').style.display='flex'; this.style.display='none';" style="position: absolute; top: 20px; right: 20px; background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">✨ 呼叫 AI</button>
+
+        <!-- AI Panel -->
+        <div id="ai-panel" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: #333;">✨ AI 关卡定制</h3>
+                <button class="close-btn" onclick="document.getElementById('ai-panel').style.display='none'; document.getElementById('open-ai-btn').style.display='block';">✖</button>
+            </div>
+            <p style="margin: 0; font-size: 14px; color: #666; text-align: left;">输入要求，大模型将为你前方铺设专属的数学挑战门！</p>
+            <input type="text" id="ai-prompt" placeholder="例如：给小学生玩的，或者变态加倍难度！">
+            <button id="ai-generate-btn" class="action-btn" onclick="generateAIGates()">✨ 立即生成赛道</button>
+            <div id="ai-loading" style="display: none; font-size: 14px; color: #9b59b6; font-weight: bold;">✨ AI 正在设计中...</div>
+        </div>
+
+        <div id="controls-hint">
+            <div class="hint-section">
+                <span class="text-shadow">MOVE</span>
+                <span style="font-size: 12px;">↓</span>
+                <div class="keys">
+                    <div class="key">A</div>
+                    <div class="key">D</div>
+                </div>
+            </div>
+            <div style="width: 2px; background: rgba(255,255,255,0.5);"></div>
+            <div class="hint-section">
+                <span class="text-shadow">USE THE MOUSE / TOUCH</span>
+                <span style="font-size: 12px;">↓</span>
+                <div>↔ 🖱️ ↔</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let playerGroup, playerBase;
+        let gates = [];
+        let scenery = [];
+        
+        const apiKey = "";
+        
+        // 游戏状态
+        let currentScore = 1;
+        let speed = 0.4;
+        let gameActive = true;
+        
+        // 运动控制
+        const pathWidth = 10;
+        let targetX = 0;
+        let isDragging = false;
+        let previousMouseX = 0;
+        let levelBaseZ = -30; // 记录关卡生成的起始Z轴
+
+        // 颜色主题
+        const colors = {
+            bg: 0x90d0f0,
+            path: 0xffffff,
+            player: 0x3498db,
+            gatePositive: 'rgba(52, 152, 219, 0.7)', // 蓝色门
+            gatePositiveBorder: '#2980b9',
+            gateNegative: 'rgba(231, 76, 60, 0.7)', // 红色门
+            gateNegativeBorder: '#c0392b',
+            mountain: 0x7abce0
+        };
+
+        window.onload = function() {
+            init();
+            animate();
+        };
+
+        function init() {
+            // 1. 初始化场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(colors.bg);
+            scene.fog = new THREE.Fog(colors.bg, 20, 100);
+
+            // 2. 初始化相机 (跑酷视角)
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+            
+            // 3. 初始化渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // 4. 灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(20, 50, 20);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.top = 50;
+            dirLight.shadow.camera.bottom = -50;
+            dirLight.shadow.camera.left = -50;
+            dirLight.shadow.camera.right = 50;
+            scene.add(dirLight);
+
+            // 5. 环境建立
+            createEnvironment();
+
+            // 6. 玩家建立
+            createPlayer();
+
+            // 7. 生成初始关卡门
+            generateLevel();
+
+            // 8. 事件监听
+            setupInputs();
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function createEnvironment() {
+            // 跑道
+            const pathGeo = new THREE.PlaneGeometry(pathWidth, 2000);
+            const pathMat = new THREE.MeshStandardMaterial({ color: colors.path, roughness: 0.8 });
+            const path = new THREE.Mesh(pathGeo, pathMat);
+            path.rotation.x = -Math.PI / 2;
+            path.position.z = -900;
+            path.receiveShadow = true;
+            scene.add(path);
+
+            // 两侧边线
+            const borderGeo = new THREE.BoxGeometry(0.5, 0.5, 2000);
+            const borderMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+            const leftBorder = new THREE.Mesh(borderGeo, borderMat);
+            leftBorder.position.set(-pathWidth/2 - 0.25, 0.25, -900);
+            scene.add(leftBorder);
+            const rightBorder = new THREE.Mesh(borderGeo, borderMat);
+            rightBorder.position.set(pathWidth/2 + 0.25, 0.25, -900);
+            scene.add(rightBorder);
+
+            // 生成两侧山峰装饰
+            const mountGeo = new THREE.ConeGeometry(4, 15, 4);
+            const mountMat = new THREE.MeshStandardMaterial({ color: colors.mountain, flatShading: true });
+            
+            for(let i = 0; i < 40; i++) {
+                const zPos = -i * 15;
+                // 左侧山
+                const mountL = new THREE.Mesh(mountGeo, mountMat);
+                mountL.position.set(-pathWidth/2 - 5 - Math.random()*5, 5, zPos + Math.random()*5);
+                mountL.rotation.y = Math.random() * Math.PI;
+                scene.add(mountL);
+                
+                // 右侧山
+                const mountR = new THREE.Mesh(mountGeo, mountMat);
+                mountR.position.set(pathWidth/2 + 5 + Math.random()*5, 5, zPos + Math.random()*5);
+                mountR.rotation.y = Math.random() * Math.PI;
+                scene.add(mountR);
+            }
+        }
+
+        function createPlayer() {
+            playerGroup = new THREE.Group();
+            
+            // 基础小人几何体 - 修复 r128 报错，改用 CylinderGeometry
+            const bodyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: colors.player });
+            playerBase = new THREE.Mesh(bodyGeo, bodyMat);
+            playerBase.position.y = 0.8;
+            playerBase.castShadow = true;
+            
+            playerGroup.add(playerBase);
+            playerGroup.position.set(0, 0, 0);
+            scene.add(playerGroup);
+        }
+
+        function generateLevel(customPairs = null) {
+            // 每隔一段距离生成一组门
+            const gatePairs = customPairs || [
+                { l: "+10", r: "x2" },
+                { l: "-5", r: "+20" },
+                { l: "x3", r: "+50" },
+                { l: "/2", r: "+10" },
+                { l: "+100", r: "x5" }
+            ];
+
+            const distanceBetweenGates = 40;
+
+            gatePairs.forEach((pair, index) => {
+                const zPos = levelBaseZ - (index * distanceBetweenGates);
+                createGatePair(zPos, pair.l, pair.r);
+            });
+            
+            levelBaseZ -= (gatePairs.length * distanceBetweenGates);
+        }
+
+        async function generateAIGates() {
+            const promptInput = document.getElementById('ai-prompt').value || '给我生成一些随机难度的加减乘除关卡';
+            const btn = document.getElementById('ai-generate-btn');
+            const loading = document.getElementById('ai-loading');
+            
+            btn.style.display = 'none';
+            loading.style.display = 'block';
+
+            const payload = {
+                contents: [{ parts: [{ text: `User request: ${promptInput}. Generate exactly 8 pairs of math operations.` }] }],
+                systemInstruction: {
+                    parts: [{ text: "You are a level designer for a Math Runner game. Generate pairs of math operations (left and right gates). Return exactly 8 items. Format each operation as a string starting with +, -, x, or / followed by an integer (e.g., '+10', 'x3', '-5', '/2'). Do not use overly huge numbers. Respond ONLY with valid JSON matching the schema." }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                l: { type: "STRING" },
+                                r: { type: "STRING" }
+                            },
+                            required: ["l", "r"]
+                        }
+                    }
+                }
+            };
+
+            const fetchWithRetry = async (url, options, retries = 5, delay = 1000) => {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return await response.json();
+                    } catch (error) {
+                        if (i === retries - 1) throw error;
+                        await new Promise(res => setTimeout(res, delay * Math.pow(2, i)));
+                    }
+                }
+            };
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const result = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    const aiGatePairs = JSON.parse(text);
+                    
+                    // 清除前方未通过的门，为 AI 关卡腾出空间
+                    gates.forEach(g => {
+                        if(!g.passed) {
+                            scene.remove(g.meshes[0]);
+                            scene.remove(g.meshes[1]);
+                        }
+                    });
+                    gates = gates.filter(g => g.passed);
+                    
+                    // 将生成起点设置在玩家前方一段安全距离
+                    levelBaseZ = playerGroup.position.z - 80; 
+                    generateLevel(aiGatePairs);
+                }
+            } catch (error) {
+                console.error("AI Generation failed:", error);
+                alert("✨ 生成失败，请检查网络或重试！");
+            } finally {
+                btn.style.display = 'block';
+                loading.style.display = 'none';
+                document.getElementById('ai-panel').style.display = 'none';
+                document.getElementById('open-ai-btn').style.display = 'block';
+            }
+        }
+
+        function createGateTexture(text, isPositive) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // 背景
+            ctx.fillStyle = isPositive ? colors.gatePositive : colors.gateNegative;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 边框
+            ctx.strokeStyle = isPositive ? colors.gatePositiveBorder : colors.gateNegativeBorder;
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+            // 文字
+            ctx.fillStyle = "white";
+            ctx.font = "bold 100px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            // 文字阴影
+            ctx.shadowColor = "rgba(0,0,0,0.3)";
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 3;
+
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createGatePair(zPos, leftText, rightText) {
+            const gateWidth = pathWidth / 2;
+            const gateHeight = 4;
+            
+            const geometry = new THREE.PlaneGeometry(gateWidth - 0.2, gateHeight);
+            
+            // 判断是否是增益门（包含 + 或 x）
+            const isLeftPositive = leftText.includes('+') || leftText.includes('x');
+            const isRightPositive = rightText.includes('+') || rightText.includes('x');
+
+            const matLeft = new THREE.MeshBasicMaterial({ 
+                map: createGateTexture(leftText, isLeftPositive), 
+                transparent: true, 
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+            const matRight = new THREE.MeshBasicMaterial({ 
+                map: createGateTexture(rightText, isRightPositive), 
+                transparent: true, 
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+
+            const gateLeft = new THREE.Mesh(geometry, matLeft);
+            gateLeft.position.set(-gateWidth/2, gateHeight/2, zPos);
+            
+            const gateRight = new THREE.Mesh(geometry, matRight);
+            gateRight.position.set(gateWidth/2, gateHeight/2, zPos);
+
+            scene.add(gateLeft);
+            scene.add(gateRight);
+
+            // 存储逻辑数据用于碰撞检测
+            gates.push({
+                z: zPos,
+                passed: false,
+                leftOp: leftText,
+                rightOp: rightText,
+                meshes: [gateLeft, gateRight]
+            });
+        }
+
+        function setupInputs() {
+            // 键盘控制
+            window.addEventListener('keydown', (e) => {
+                if(e.key === 'a' || e.key === 'ArrowLeft') {
+                    targetX = Math.max(targetX - 2, -pathWidth/2 + 0.5);
+                } else if(e.key === 'd' || e.key === 'ArrowRight') {
+                    targetX = Math.min(targetX + 2, pathWidth/2 - 0.5);
+                }
+            });
+
+            // 鼠标拖拽控制
+            window.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMouseX = e.clientX;
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMouseX;
+                    // 映射屏幕位移到 3D 空间位移
+                    const moveAmount = deltaX * 0.02; 
+                    targetX += moveAmount;
+                    // 边界限制
+                    targetX = Math.max(-pathWidth/2 + 0.5, Math.min(pathWidth/2 - 0.5, targetX));
+                    previousMouseX = e.clientX;
+                }
+            });
+            window.addEventListener('mouseup', () => { isDragging = false; });
+            window.addEventListener('mouseleave', () => { isDragging = false; });
+
+            // 触摸控制
+            window.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                previousMouseX = e.touches[0].clientX;
+            }, {passive: false});
+            window.addEventListener('touchmove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.touches[0].clientX - previousMouseX;
+                    const moveAmount = deltaX * 0.02;
+                    targetX += moveAmount;
+                    targetX = Math.max(-pathWidth/2 + 0.5, Math.min(pathWidth/2 - 0.5, targetX));
+                    previousMouseX = e.touches[0].clientX;
+                }
+            }, {passive: false});
+            window.addEventListener('touchend', () => { isDragging = false; });
+        }
+
+        function applyMathOperation(operation) {
+            const operator = operation.charAt(0);
+            const value = parseInt(operation.slice(1));
+
+            switch(operator) {
+                case '+': currentScore += value; break;
+                case '-': currentScore -= value; break;
+                case 'x': currentScore *= value; break;
+                case '/': currentScore = Math.floor(currentScore / value); break;
+            }
+            
+            // 保证分数不低于0
+            if (currentScore < 0) currentScore = 0;
+            
+            // 更新 UI
+            document.getElementById('score-value').innerText = currentScore;
+            document.getElementById('player-label').innerText = currentScore;
+
+            // 简单视觉反馈：放大一下
+            playerGroup.scale.set(1.5, 1.5, 1.5);
+            setTimeout(() => {
+                playerGroup.scale.set(1, 1, 1);
+            }, 150);
+            
+            if (currentScore === 0) {
+                gameActive = false;
+                setTimeout(() => alert("游戏结束！人群数量归零。刷新页面重试。"), 100);
+            }
+        }
+
+        function updatePlayerLabel() {
+            // 将 3D 坐标转换为 2D 屏幕坐标
+            if(!playerGroup) return;
+            
+            const tempV = new THREE.Vector3();
+            // 获取玩家头部靠上的位置
+            playerGroup.getWorldPosition(tempV);
+            tempV.y += 2.5; 
+
+            tempV.project(camera);
+
+            const x = (tempV.x * .5 + .5) * window.innerWidth;
+            const y = (tempV.y * -.5 + .5) * window.innerHeight;
+
+            const label = document.getElementById('player-label');
+            label.style.left = `${x}px`;
+            label.style.top = `${y}px`;
+        }
+
+        function checkCollisions() {
+            const playerZ = playerGroup.position.z;
+            const playerX = playerGroup.position.x;
+
+            gates.forEach(gate => {
+                // 当玩家刚好穿过门的 Z 轴时
+                if (!gate.passed && playerZ < gate.z && playerZ > gate.z - speed * 2) {
+                    gate.passed = true;
+                    // 判断在左边还是右边
+                    if (playerX < 0) {
+                        applyMathOperation(gate.leftOp);
+                        // 隐藏左边的门以示打破
+                        gate.meshes[0].visible = false;
+                    } else {
+                        applyMathOperation(gate.rightOp);
+                        gate.meshes[1].visible = false;
+                    }
+                }
+                
+                // 垃圾回收：清理玩家身后的门
+                if (gate.z > playerZ + 50 && !gate.cleaned) {
+                    scene.remove(gate.meshes[0]);
+                    scene.remove(gate.meshes[1]);
+                    gate.cleaned = true;
+                }
+            });
+            
+            gates = gates.filter(g => !g.cleaned);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!gameActive) return;
+
+            // 1. 玩家前进
+            playerGroup.position.z -= speed;
+
+            // 2. 玩家平滑左右移动 (Lerp)
+            playerGroup.position.x += (targetX - playerGroup.position.x) * 0.15;
+
+            // 3. 碰撞检测
+            checkCollisions();
+
+            // 4. 相机跟随
+            camera.position.x = playerGroup.position.x * 0.5; // 相机仅跟随一半的X轴，更有动感
+            camera.position.y = 8;
+            camera.position.z = playerGroup.position.z + 15;
+            camera.lookAt(playerGroup.position.x * 0.8, 0, playerGroup.position.z - 10);
+
+            // 5. 更新 UI 标签位置
+            updatePlayerLabel();
+
+            // 6. 循环跑道生成 (简单的无尽逻辑：当玩家接近已生成的最后一个门时，继续生成)
+            if (playerGroup.position.z < levelBaseZ + 150) {
+                generateLevel(); // 自动无限生成默认门
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
