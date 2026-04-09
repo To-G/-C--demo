@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>关卡设计管理台</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: var(--panel);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+    }
+    h1 {
+      margin-top: 0;
+      color: #e0e7ff;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 15px;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-family: inherit;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    textarea {
+      font-family: "Menlo", monospace;
+      resize: vertical;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    .button-row {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+    }
+    button {
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+    }
+    .btn-save {
+      background: #10b981;
+      color: white;
+    }
+    .btn-save:hover { background: #059669; transform: translateY(-2px); }
+    .btn-export {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-export:hover { background: var(--primary-hover); transform: translateY(-2px); }
+    
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #10b981;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      游戏题目配置台
+      <select id="levelSelect" style="width: auto; min-width: 150px; font-size: 16px; padding: 6px 12px; height: 38px;">
+        <option value="0">加载中...</option>
+      </select>
+    </h1>
+    
+    <div class="form-group">
+      <label>关卡名称 (Name)</label>
+      <input type="text" id="levelName">
+    </div>
+    <div class="form-group">
+      <label>初始金币 (Initial Coins)</label>
+      <input type="number" id="initialCoins" min="0" max="999">
+    </div>
+    <div class="form-group">
+      <label>每步卡牌节点配置 (Cards JSON) - 必须是合法的JSON数组</label>
+      <textarea id="cardsJson" rows="8"></textarea>
+    </div>
+    <div class="form-group">
+      <label>预设学生代码入门模版 (Preset Code)</label>
+      <textarea id="presetCode" rows="12"></textarea>
+    </div>
+
+    <div class="button-row">
+      <button class="btn-save" id="btnUpdateMem">💾 保存当前关卡至缓存</button>
+      <button class="btn-export" id="btnExport">📥 下载全新 config.js 覆盖配置</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">操作成功！</div>
+
+  <script>
+    let currentIdx = 0;
+    const configData = window.LEVELS_CONFIG || [];
+
+    const sel = document.getElementById("levelSelect");
+    const elName = document.getElementById("levelName");
+    const elCoins = document.getElementById("initialCoins");
+    const elCards = document.getElementById("cardsJson");
+    const elCode = document.getElementById("presetCode");
+    const toastInfo = document.getElementById("toast");
+
+    function renderOptions() {
+      sel.innerHTML = "";
+      configData.forEach((lvl, i) => {
+        const op = document.createElement("option");
+        op.value = i;
+        op.textContent = lvl.name || `Level ${i+1}`;
+        sel.appendChild(op);
+      });
+      sel.value = currentIdx;
+    }
+
+    function loadForm(idx) {
+      if (!configData[idx]) return;
+      const data = configData[idx];
+      elName.value = data.name;
+      elCoins.value = data.initialCoins;
+      elCards.value = JSON.stringify(data.cards, null, 2);
+      elCode.value = data.code;
+    }
+
+    function showToast(msg) {
+      toastInfo.textContent = msg;
+      toastInfo.classList.add("show");
+      setTimeout(() => toastInfo.classList.remove("show"), 2500);
+    }
+
+    // Event Listeners
+    sel.addEventListener("change", (e) => {
+      currentIdx = parseInt(e.target.value);
+      loadForm(currentIdx);
+    });
+
+    document.getElementById("btnUpdateMem").addEventListener("click", () => {
+      try {
+        const parsedCards = JSON.parse(elCards.value);
+        if (!Array.isArray(parsedCards)) throw new Error("Cards必须是数组");
+        
+        configData[currentIdx].name = elName.value;
+        configData[currentIdx].initialCoins = parseInt(elCoins.value);
+        configData[currentIdx].cards = parsedCards;
+        configData[currentIdx].code = elCode.value;
+        
+        renderOptions(); // update select names
+        showToast("✓ 关卡已保存到浏览器内存");
+      } catch (e) {
+        alert("保存失败，卡牌配置 JSON 格式不合法：\\n" + e.message);
+      }
+    });
+
+    document.getElementById("btnExport").addEventListener("click", () => {
+      const jsContent = "window.LEVELS_CONFIG = " + JSON.stringify(configData, null, 2) + ";";
+      const blob = new Blob([jsContent], { type: "application/javascript" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "config.js";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast("✓ 下载开始，请覆盖原文件！");
+    });
+
+    // Init
+    if (configData.length > 0) {
+      renderOptions();
+      loadForm(0);
+    } else {
+      alert("错误：未能成功加载 config.js，请确保它是合法的 JSON，并且跟 admin.html 在同一文件夹内。");
+    }
+  </script>
+</body>
+</html>

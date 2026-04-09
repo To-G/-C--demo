@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时空叠影局 - 动态连线版</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        /* 核心布局：包裹 SVG 和 Grid */
+        .grid-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        /* SVG 连线层：沉在最底部 */
+        .line-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            /* 不阻挡点击事件 */
+            z-index: 0;
+        }
+
+        /* 虚线流动动画样式 */
+        .route-line {
+            stroke-width: 6;
+            stroke-dasharray: 12, 8;
+            /* 虚线段长度和间距 */
+            fill: none;
+            stroke-linecap: round;
+            animation: flow 0.8s linear infinite;
+            /* 流动效果 */
+        }
+
+        /* 专属连线颜色 */
+        .line-default {
+            stroke: #3498db;
+        }
+
+        .line-bronze {
+            stroke: #cd7f32;
+            opacity: 0.8;
+        }
+
+        .line-silver {
+            stroke: #95a5a6;
+            opacity: 0.8;
+        }
+
+        .line-king {
+            stroke: #f1c40f;
+            filter: drop-shadow(0 0 5px rgba(241, 196, 15, 0.8));
+        }
+
+        @keyframes flow {
+            to {
+                stroke-dashoffset: -20;
+            }
+
+            /* 负值产生向前流动的视觉错觉 */
+        }
+
+        /* 格子层布局 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            position: relative;
+            z-index: 1;
+            /* 格子浮在连线上面 */
+        }
+
+        .cell {
+            background-color: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 20px 10px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        /* 特殊格子默认样式 */
+        .cell.trap {
+            background-color: #ffeaea;
+            border-color: #e74c3c;
+            color: #c0392b;
+        }
+
+        .cell.reward {
+            background-color: #fff8e1;
+            border-color: #f1c40f;
+            color: #d35400;
+        }
+
+        /* 交互状态样式 */
+        .cell:hover:not(.disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .cell.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .cell.available {
+            border-color: #2ecc71;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+        }
+
+        /* 基础走过路线的样式 */
+        .cell.active {
+            background-color: #3498db;
+            border-color: #2980b9;
+            color: #fff;
+        }
+
+        .cell.active.trap {
+            background-color: #e74c3c;
+            color: #fff;
+        }
+
+        .cell.active.reward {
+            background-color: #f39c12;
+            color: #fff;
+        }
+
+        /* 三层认知专属路线标记 (高亮+描边+发光) */
+        .cell.active.route-bronze {
+            background-color: #cd7f32;
+            border-color: #8b5a2b;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
+        }
+
+        .cell.active.route-silver {
+            background-color: #95a5a6;
+            border-color: #7f8c8d;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(149, 165, 166, 0.5);
+        }
+
+        .cell.active.route-king {
+            background-color: #f1c40f;
+            border-color: #e67e22;
+            color: #d35400;
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.8);
+            transform: scale(1.05);
+        }
+
+        .headers {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        .dashboard {
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .score {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2ecc71;
+        }
+
+        .msg-box {
+            height: 24px;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            color: white;
+        }
+
+        .btn-reset {
+            background-color: #7f8c8d;
+        }
+
+        .btn-bronze {
+            background-color: #cd7f32;
+        }
+
+        .btn-silver {
+            background-color: #95a5a6;
+        }
+
+        .btn-king {
+            background-color: #f1c40f;
+            color: #d35400;
+        }
+
+        button:hover {
+            filter: brightness(0.9);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>时空叠影局</h2>
+
+        <div class="dashboard">
+            <div>当前总金币</div>
+            <div class="score" id="scoreDisplay">0</div>
+        </div>
+
+        <div class="msg-box" id="msgBox"></div>
+
+        <div class="headers">
+            <div>A 跑道</div>
+            <div>B 跑道</div>
+            <div>C 跑道</div>
+        </div>
+
+        <div class="grid-wrapper" id="gridWrapper">
+            <svg class="line-svg" id="lineSvg"></svg>
+            <div class="grid" id="grid">
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-reset" onclick="resetGame()">↺ 重置</button>
+            <button class="btn-bronze" onclick="playAuto([2,2,2,2], 'bronze')">1. 青铜路线</button>
+            <button class="btn-silver" onclick="playAuto([2,1,0,0], 'silver')">2. 白银路线</button>
+            <button class="btn-king" onclick="playAuto([2,1,1,0], 'king')">3. 王者路线</button>
+        </div>
+    </div>
+
+    <script>
+        // 关卡数据定义
+        const levelData = [
+            [{ txt: '+ 20', op: '+', val: 20 }, { txt: '+ 50', op: '+', val: 50 }, { txt: '+ 300', op: '+', val: 300 }],
+            [{ txt: '+ 50', op: '+', val: 50 }, { txt: '+ 100', op: '+', val: 100 }, { txt: '+ 300', op: '+', val: 300 }],
+            [{ txt: '+ 20', op: '+', val: 20 }, { txt: '÷ 0.5', op: '/', val: 0.5, style: 'trap' }, { txt: '+ 300', op: '+', val: 300 }],
+            [{ txt: 'x 10', op: '*', val: 10, style: 'reward' }, { txt: '+ 100', op: '+', val: 100 }, { txt: '+ 200', op: '+', val: 200 }]
+        ];
+
+        let currentRow = -1;
+        let currentCol = null;
+        let currentScore = 0;
+        let isPlayingAuto = false;
+        let visitedPath = [];
+        let currentRouteType = '';
+
+        const gridEl = document.getElementById('grid');
+        const svgEl = document.getElementById('lineSvg');
+        const scoreEl = document.getElementById('scoreDisplay');
+        const msgBox = document.getElementById('msgBox');
+
+        // 1. 初始化 DOM 节点（只运行一次，防止连线坐标计算错误）
+        function initGrid() {
+            gridEl.innerHTML = '';
+            for (let r = 0; r < levelData.length; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const cellData = levelData[r][c];
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${cellData.style || ''}`;
+                    cell.id = `cell-${r}-${c}`;
+                    cell.innerText = cellData.txt;
+                    cell.onclick = () => handleCellClick(r, c);
+                    gridEl.appendChild(cell);
+                }
+            }
+            updateGridState();
+        }
+
+        // 2. 更新格子状态和连线
+        function updateGridState() {
+            for (let r = 0; r < levelData.length; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const cell = document.getElementById(`cell-${r}-${c}`);
+                    // 重置动态类名
+                    cell.classList.remove('active', 'disabled', 'available', 'route-bronze', 'route-silver', 'route-king');
+
+                    const isVisited = visitedPath.some(pos => pos.r === r && pos.c === c);
+
+                    if (isVisited) {
+                        cell.classList.add('active');
+                        if (currentRouteType) cell.classList.add(`route-${currentRouteType}`);
+                    } else if (r === currentRow + 1 && !isPlayingAuto) {
+                        // 下一步提示框
+                        if (currentCol === null || Math.abs(c - currentCol) <= 1) {
+                            cell.classList.add('available');
+                        } else {
+                            cell.classList.add('disabled');
+                        }
+                    } else {
+                        cell.classList.add('disabled');
+                    }
+                }
+            }
+            drawLines(); // 每次状态更新后重绘连线
+        }
+
+        // 3. 动态绘制 SVG 连线
+        function drawLines() {
+            svgEl.innerHTML = '';
+            if (visitedPath.length < 2) return;
+
+            for (let i = 0; i < visitedPath.length - 1; i++) {
+                const p1 = visitedPath[i];
+                const p2 = visitedPath[i + 1];
+                const cell1 = document.getElementById(`cell-${p1.r}-${p1.c}`);
+                const cell2 = document.getElementById(`cell-${p2.r}-${p2.c}`);
+
+                if (cell1 && cell2) {
+                    // 计算格子中心点相对 grid-wrapper 的坐标
+                    const x1 = cell1.offsetLeft + cell1.offsetWidth / 2;
+                    const y1 = cell1.offsetTop + cell1.offsetHeight / 2;
+                    const x2 = cell2.offsetLeft + cell2.offsetWidth / 2;
+                    const y2 = cell2.offsetTop + cell2.offsetHeight / 2;
+
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x1);
+                    line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2);
+                    line.setAttribute('y2', y2);
+
+                    // 赋予专属颜色类名
+                    let lineClass = 'route-line ';
+                    if (currentRouteType) lineClass += `line-${currentRouteType}`;
+                    else lineClass += 'line-default';
+
+                    line.setAttribute('class', lineClass);
+                    svgEl.appendChild(line);
+                }
+            }
+        }
+
+        // 处理玩家手动点击
+        function handleCellClick(r, c) {
+            if (isPlayingAuto) return;
+            msgBox.innerText = '';
+            currentRouteType = '';
+
+            if (r !== currentRow + 1) {
+                if (r <= currentRow) msgBox.innerText = '不能后退！';
+                else msgBox.innerText = '不能跳步！请一步步来。';
+                return;
+            }
+
+            if (currentCol !== null && Math.abs(c - currentCol) > 1) {
+                msgBox.innerText = '规则限制：只能跳转到相邻跑道！';
+                return;
+            }
+
+            executeStep(r, c);
+        }
+
+        // 执行单步逻辑
+        function executeStep(r, c) {
+            const cellData = levelData[r][c];
+            currentRow = r;
+            currentCol = c;
+
+            visitedPath.push({ r: r, c: c });
+
+            // 计算分数
+            if (cellData.op === '+') currentScore += cellData.val;
+            else if (cellData.op === '*') currentScore *= cellData.val;
+            else if (cellData.op === '/') currentScore /= cellData.val;
+
+            scoreEl.style.transform = 'scale(1.2)';
+            setTimeout(() => scoreEl.style.transform = 'scale(1)', 200);
+
+            scoreEl.innerText = currentScore;
+            updateGridState();
+
+            // 结束判定
+            if (currentRow === levelData.length - 1) {
+                setTimeout(() => {
+                    let evalMsg = "";
+                    if (currentScore <= 1500) evalMsg = "【青铜直觉】被眼前的金币诱惑了，错失大奖。";
+                    else if (currentScore <= 5000) evalMsg = "【白银规划】避开了除法陷阱，拿到了高分！";
+                    else evalMsg = "【王者破局】神级操作！踩中除法实现翻倍，达成极限总分！";
+                    msgBox.style.color = "#2ecc71";
+                    msgBox.innerText = `游戏结束！${evalMsg}`;
+                }, 300);
+            }
+        }
+
+        // 重置状态
+        function resetGame() {
+            currentRow = -1;
+            currentCol = null;
+            currentScore = 0;
+            visitedPath = [];
+            currentRouteType = '';
+            isPlayingAuto = false;
+            scoreEl.innerText = '0';
+            msgBox.innerText = '';
+            msgBox.style.color = '#e74c3c';
+            updateGridState();
+        }
+
+        // 自动播放演示路线
+        async function playAuto(pathArray, type) {
+            if (isPlayingAuto) return;
+            resetGame();
+            isPlayingAuto = true;
+            currentRouteType = type;
+
+            for (let i = 0; i < pathArray.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                executeStep(i, pathArray[i]);
+            }
+            isPlayingAuto = false;
+        }
+
+        // 窗口大小改变时重绘连线坐标
+        window.addEventListener('resize', drawLines);
+
+        // 初始渲染
+        initGrid();
+    </script>
+
+</body>
+
+</html>

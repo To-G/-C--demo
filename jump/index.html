@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gate Lane Demo</title>
+  <style>
+    :root {
+      --bg: #070b16;
+      --panel: #0f172a;
+      --border: #24324e;
+      --text: #e6f0ff;
+      --muted: #93c5fd;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei";
+      overflow: hidden;
+    }
+
+    #layout {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 504px 1fr;
+      /* Reduced from 560px since zoom is removed */
+    }
+
+    @media (max-width: 980px) {
+      #layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 44vh 56vh;
+      }
+    }
+
+    .editorPane {
+      background: #8e8cd8;
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      padding-bottom: 80px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .level-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .level-tabs button {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      box-shadow: none;
+      color: var(--text);
+      font-size: 14px;
+      border-radius: 6px;
+    }
+
+    .level-tabs button.active {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-color: #2563eb;
+    }
+
+    .CodeMirror {
+      flex: 1;
+      height: auto;
+      border-radius: 12px;
+      font-family: Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace !important;
+      font-size: 15px;
+      line-height: 1.5;
+      background: #f0f4fc;
+      padding: 8px 0;
+    }
+
+    .CodeMirror-gutters {
+      background: #e4ebf9;
+      border-right: 1px solid #dbe5fc;
+      padding-right: 8px;
+    }
+
+    .CodeMirror-linenumber {
+      color: #8c90a3;
+    }
+
+    .cm-s-default .cm-keyword {
+      color: #1f11e3 !important;
+      font-weight: bold;
+    }
+
+    .cm-s-default .cm-string {
+      color: #e37222 !important;
+    }
+
+    .cm-s-default .cm-comment {
+      color: #6a9955 !important;
+    }
+
+    .cm-s-default .cm-def {
+      color: #cc7832 !important;
+    }
+
+    .cm-s-default .cm-variable {
+      color: #111 !important;
+    }
+
+    .cm-s-default .cm-number {
+      color: #111 !important;
+    }
+
+    .cm-s-default .cm-operator {
+      color: #111 !important;
+    }
+
+    .cm-editable-slot {
+      background-color: #FFF5E8 !important;
+      border-bottom: 2px solid #F76D0A !important;
+      cursor: pointer !important;
+      border-radius: 2px;
+      color: #111;
+    }
+
+    .cm-editable-slot-typing {
+      background-color: #FFF5E8 !important;
+      border-bottom: 2px solid #F76D0A !important;
+      border-radius: 2px;
+    }
+
+    .editor-bottom-controls {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .btn-run {
+      background: #f78f1e;
+      border: none;
+      color: white;
+      padding: 12px 30px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s ease;
+    }
+
+    .btn-run:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-run.running {
+      background: #d9534f;
+    }
+
+    .btn-reset {
+      background: #f5b632;
+      border: none;
+      color: white;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s ease;
+    }
+
+    .btn-reset:hover {
+      transform: rotate(-30deg);
+    }
+
+    .btn-hand {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #5ea1ff;
+      color: white;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+    }
+
+    .btn-hand:hover {
+      transform: scale(1.1);
+    }
+
+    .status {
+      font-size: 13px;
+      color: white;
+      line-height: 1.35;
+      min-height: 16px;
+      z-index: 10;
+    }
+
+    .canvasPane {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      box-sizing: border-box;
+      gap: 10px;
+      flex-direction: column;
+      transform: scale(0.9);
+    }
+
+    #gameCanvas {
+      width: 540px;
+      height: 732px;
+      border-radius: 12px;
+      background: transparent;
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.25);
+    }
+
+    .footerHint {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.35;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+  <script src='config.js'></script>
+</head>
+
+<body>
+  <div id="layout">
+    <div class="editorPane">
+      <div class="level-tabs" id="levelTabs">
+        <button class="active" data-level="0">关卡 1</button>
+        <button data-level="1">关卡 2</button>
+        <button data-level="2">关卡 3</button>
+        <button data-level="3">关卡 4</button>
+      </div>
+      <div id="status" class="status"></div>
+      <textarea id="studentCode" spellcheck="false"></textarea>
+
+      <button class="btn-hand" type="button">👆</button>
+      <div class="editor-bottom-controls">
+        <button id="applyBtn" class="btn-run" type="button">运行</button>
+        <button id="resetBtn" class="btn-reset" type="button">⟳</button>
+      </div>
+    </div>
+
+    <div class="canvasPane">
+      <canvas id="gameCanvas" width="540" height="732"></canvas>
+      <div class="footerHint">
+        Left: student code. Right: effect. Click `Run` to execute 4 jumps.
+        <br />
+        `a` = left road, `b` = right road. Keys: <code>R</code> restart.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      let sw = 540;
+      const sh = 732;
+      let rowSize = 2;
+      const jumpDurationMs = 550;
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const statusEl = document.getElementById("status");
+      const applyBtn = document.getElementById("applyBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const studentCodeEl = document.getElementById("studentCode");
+
+      const editor = CodeMirror.fromTextArea(studentCodeEl, {
+        lineNumbers: true,
+        mode: "text/x-c++src",
+        theme: "default",
+        indentUnit: 2,
+        tabSize: 2
+      });
+
+      let editableMarks = [];
+
+      function parseSlots(code) {
+        let finalCode = "";
+        let slots = [];
+        let cursor = 0;
+        let regex = /##([\s\S]*?)##|#(?!include|define|pragma|if|elif|else|endif)([\s\S]*?)#/g;
+        let match;
+        while ((match = regex.exec(code)) !== null) {
+          let content = match[1] !== undefined ? match[1] : match[2];
+          finalCode += code.substring(cursor, match.index);
+          let start = finalCode.length;
+          finalCode += content;
+          let end = finalCode.length;
+          slots.push({ start, end, content });
+          cursor = regex.lastIndex;
+        }
+        finalCode += code.substring(cursor);
+        return { finalCode, slots };
+      }
+
+      editor.on("mousedown", (cm, e) => {
+        if (e.button !== 0) return;
+        const pos = cm.coordsChar({ left: e.clientX, top: e.clientY });
+        const marks = cm.findMarksAt(pos);
+        for (let mark of marks) {
+          if (mark.isSlot && !mark.isEdited) {
+            e.preventDefault();
+            let range = mark.find();
+            if (!range) continue;
+
+            mark.clear();
+
+            cm.replaceRange(" ", range.from, range.to, "+slotClick");
+
+            let newTo = { line: range.from.line, ch: range.from.ch + 1 };
+            let newMark = cm.markText(range.from, newTo, {
+              className: "cm-editable-slot-typing",
+              inclusiveLeft: true,
+              inclusiveRight: true,
+              clearWhenEmpty: false
+            });
+            newMark.isSlot = true;
+            newMark.isEdited = true;
+
+            editableMarks = editableMarks.map(m => m === mark ? newMark : m);
+            cm.setSelection(range.from, newTo);
+            cm.focus();
+            break;
+          }
+        }
+      });
+
+      editor.on("beforeChange", (cm, change) => {
+        if (change.origin === "setValue" || change.origin === "+slotClick" || change.origin === "+fixEmpty" || (change.origin === "undo" && editableMarks.length === 0)) return;
+        if (editableMarks.length === 0) return;
+
+        let allowed = false;
+        for (let mark of editableMarks) {
+          let range = mark.find();
+          if (!range) continue;
+          if (CodeMirror.cmpPos(change.from, range.from) >= 0 && CodeMirror.cmpPos(change.to, range.to) <= 0) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) {
+          change.cancel();
+        }
+      });
+
+      editor.on("change", (cm, change) => {
+        if (change.origin === "setValue" || change.origin === "+fixEmpty" || change.origin === "+slotClick") return;
+        for (let mark of editableMarks) {
+          let range = mark.find();
+          if (range && CodeMirror.cmpPos(range.from, range.to) === 0) {
+            cm.replaceRange(" ", range.from, range.to, "+fixEmpty");
+            cm.setCursor({ line: range.from.line, ch: range.from.ch });
+          }
+        }
+      });
+
+      const LEVELS_CONFIG = window.LEVELS_CONFIG || [];
+
+      let currentLevelIdx = 0;
+
+      function loadLevel(idx) {
+        currentLevelIdx = idx;
+        const config = LEVELS_CONFIG[idx];
+        cards = JSON.parse(JSON.stringify(config.cards));
+        if (cards.length > 0) {
+          const firstY = cards[0].y;
+          rowSize = cards.filter(c => Math.abs(c.y - firstY) < 10).length;
+          if (rowSize === 0) rowSize = 2;
+        } else {
+          rowSize = 2;
+        }
+
+        if (rowSize === 3) {
+          sw = 810;
+        } else {
+          sw = 540;
+        }
+        canvas.width = sw;
+        canvas.style.width = sw + "px";
+
+        editableMarks.forEach(m => m.clear());
+        editableMarks = [];
+
+        const parsed = parseSlots(config.code);
+        editor.setValue(parsed.finalCode);
+
+        parsed.slots.forEach(s => {
+          let from = editor.getDoc().posFromIndex(s.start);
+          let to = editor.getDoc().posFromIndex(s.end);
+          let mark = editor.markText(from, to, {
+            className: "cm-editable-slot",
+            atomic: true,
+            inclusiveLeft: false,
+            inclusiveRight: false
+          });
+          mark.isSlot = true;
+          mark.isEdited = false;
+          editableMarks.push(mark);
+        });
+
+        let initC = config.initialCoins !== null && config.initialCoins !== undefined ? config.initialCoins : 0;
+        if (currentLevelIdx === 2 || currentLevelIdx === 3) {
+          initC = "?";
+        }
+        lastInitialCoins = initC;
+        resetState(initC, config.playerStartX, config.playerStartY);
+
+        document.querySelectorAll(".level-tabs button").forEach((btn, i) => {
+          if (i === idx) btn.classList.add("active");
+          else btn.classList.remove("active");
+        });
+
+        setStatus("已切换到 " + config.name);
+      }
+
+      function setStatus(msg) {
+        statusEl.textContent = msg || "";
+      }
+
+      function tryEvalStudentCode() {
+        const code = editor.getValue();
+        try {
+          // Execute student code and let it write to window.*.
+          // eslint-disable-next-line no-new-func
+          new Function(code)();
+          setStatus("Student code applied. Restarting...");
+          return true;
+        } catch (e) {
+          setStatus("Error in student code: " + (e && e.message ? e.message : String(e)));
+          return false;
+        }
+      }
+
+      function getStudentCards() {
+        const cards = window.studentCards;
+        if (!Array.isArray(cards)) return null;
+        // Basic validation
+        for (const c of cards) {
+          if (!c || typeof c.label !== "string" || typeof c.x !== "number" || typeof c.y !== "number") {
+            return null;
+          }
+        }
+        return cards;
+      }
+
+      // Legacy defaultCards removed, replaced by LEVELS_CONFIG
+
+      function defaultApplyGateEffect(current_coins, label) {
+        const token = String(label).trim().replace("÷", "/").replace("x", "*").replace("X", "*");
+        if (token.length < 2) return current_coins;
+        const op = token[0];
+        const value = parseFloat(token.slice(1));
+        if (!Number.isFinite(value)) return current_coins;
+
+        let result = current_coins;
+        if (op === "+") result = current_coins + value;
+        else if (op === "-") result = current_coins - value;
+        else if (op === "*") result = current_coins * value;
+        else if (op === "/" && value !== 0) result = current_coins / value;
+
+        result = Math.trunc(result);
+        result = Math.max(0, Math.min(99999, result));
+        return result;
+      }
+
+      function playerSpriteIndex(coins) {
+        if (coins === "?") return 0;
+        if (coins <= 1) return 0;
+        if (coins === 2) return 1;
+        if (coins <= 10) return 2;
+        return 3;
+      }
+
+      function labelUsesBombIcon(label) {
+        if (currentLevelIdx === 3) return false;
+        const s = String(label).trim();
+        if (!s) return false;
+        const first = s[0];
+        return first === "-" || first === "/" || first === "÷";
+      }
+
+      function isRewardCoin(label) {
+        const s = String(label).trim();
+        return s === "" || s.startsWith("+") || s.startsWith("*") || s.startsWith("x") || s.startsWith("X") || s.startsWith("÷");
+      }
+
+      function drawRoundedRect(ctx2, x, y, w, h, r) {
+        const rr = Math.min(r, w / 2, h / 2);
+        ctx2.beginPath();
+        ctx2.moveTo(x + rr, y);
+        ctx2.arcTo(x + w, y, x + w, y + h, rr);
+        ctx2.arcTo(x + w, y + h, x, y + h, rr);
+        ctx2.arcTo(x, y + h, x, y, rr);
+        ctx2.arcTo(x, y, x + w, y, rr);
+        ctx2.closePath();
+      }
+
+      function canvasCircleMask(image, size) {
+        const c = document.createElement("canvas");
+        c.width = size;
+        c.height = size;
+        const ictx = c.getContext("2d");
+        ictx.clearRect(0, 0, size, size);
+        // Clip circle
+        ictx.save();
+        ictx.beginPath();
+        ictx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ictx.clip();
+        // Draw centered, cover-like
+        const iw = image.naturalWidth || image.width;
+        const ih = image.naturalHeight || image.height;
+        const scale = Math.max(size / iw, size / ih);
+        const dw = iw * scale;
+        const dh = ih * scale;
+        const dx = (size - dw) / 2;
+        const dy = (size - dh) / 2;
+        ictx.drawImage(image, dx, dy, dw, dh);
+        ictx.restore();
+        return c;
+      }
+
+      function canvasScale(image, w, h) {
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ictx = c.getContext("2d");
+        ictx.clearRect(0, 0, w, h);
+        ictx.drawImage(image, 0, 0, w, h);
+        return c;
+      }
+
+      function loadImage(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = url;
+        });
+      }
+
+      function safeAudio(url) {
+        const a = new Audio(url);
+        a.preload = "auto";
+        a.volume = 0.85;
+        return a;
+      }
+
+      const ASSETS = {
+        bg: "assets/images/material_bg.png",
+        bg1: "assets/images/material_bg_1.png",
+        bg3: "assets/images/material_bg_3col.png",
+        coin: "assets/images/material_coin.png",
+        bomb: "assets/images/material_bomb.png",
+        sfxCoin: "assets/audio/sfx_coin.mp3",
+        sfxBomb: "assets/audio/sfx_bomb.mp3",
+        players: ["assets/images/(1).png", "assets/images/(2).png", "assets/images/(3).png", "assets/images/(4).png"],
+      };
+
+      const textures = {
+        bg: null,
+        bg1: null,
+        bg3: null,
+        coin: null,
+        bomb: null,
+        players: [],
+      };
+
+      const sounds = {
+        sfxCoin: null,
+        sfxBomb: null,
+      };
+
+      let cards = [];
+      let applyGateEffectFn = defaultApplyGateEffect;
+
+      // Game state
+      let coins = 2;
+      let playerPos = [sw / 2, sh - 42];
+      let jumpFrom = [playerPos[0], playerPos[1]];
+      let jumpTo = [playerPos[0], playerPos[1]];
+      let jumpStartMs = 0;
+      let jumping = false;
+      let targetGateIdx = null;
+
+      let selectedIdx = null;
+      let usedCardsIdx = new Set();
+      let gateRects = []; // [{idx, x,y,w,h}]
+
+      let currentRow = 0;
+      let totalRows = 0;
+      let levelDone = false;
+      let autoMoves = [];
+      let autoStep = 0;
+      let autoRunning = false;
+      let lastInitialCoins = 2;
+      let autoJumpTimer = null;
+
+      function resetState(initialCoins = 2, startX, startY) {
+        if (autoJumpTimer) clearTimeout(autoJumpTimer);
+        autoJumpTimer = null;
+        autoMoves = [];
+        autoStep = 0;
+        autoRunning = false;
+
+        coins = initialCoins;
+        
+        const config = (LEVELS_CONFIG && LEVELS_CONFIG[currentLevelIdx]) || {};
+        const defX = sw / 2;
+        const defY = sh - 42;
+        const finalX = startX !== undefined ? startX : (config.playerStartX !== undefined ? config.playerStartX : defX);
+        const finalY = startY !== undefined ? startY : (config.playerStartY !== undefined ? config.playerStartY : defY);
+
+        playerPos = [finalX, finalY];
+        jumpFrom = [playerPos[0], playerPos[1]];
+        jumpTo = [playerPos[0], playerPos[1]];
+        jumpStartMs = 0;
+        jumping = false;
+        targetGateIdx = null;
+        selectedIdx = null;
+        usedCardsIdx = new Set();
+
+        totalRows = Math.floor(cards.length / rowSize);
+        currentRow = totalRows - 1;
+        levelDone = false;
+        if (typeof applyBtn !== 'undefined' && applyBtn) {
+          applyBtn.textContent = '运行';
+          applyBtn.classList.remove('running');
+        }
+      }
+
+      function parseMovesFromCode(code) {
+        code = code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "");
+        const moves = [];
+        const re = /jump\s*\(\s*(a|b|c)\s*\)\s*;?/gi;
+        let m;
+        while ((m = re.exec(code)) !== null) {
+          const val = m[1].toLowerCase();
+          moves.push(val === "a" ? 0 : (val === "b" ? 1 : 2));
+          if (moves.length > 10) break;
+        }
+        return moves;
+      }
+
+      function parseInitialCoinsFromCode(code, fallback) {
+        const m =
+          code.match(/\bcoin\s*=\s*(\d+)\s*;?/i) ||
+          code.match(/\bcoins\s*=\s*(\d+)\s*;?/i) ||
+          code.match(/\bint\s+coin\s*=\s*(\d+)\s*;?/i);
+        if (!m) return fallback;
+        const v = parseInt(m[1], 10);
+        if (!Number.isFinite(v)) return fallback;
+        return Math.max(0, Math.min(999, v));
+      }
+
+
+
+      function triggerAutoJump() {
+        if (!autoRunning) return;
+        if (levelDone) return;
+        if (autoStep < 0 || autoStep >= autoMoves.length) {
+          autoRunning = false;
+          if (typeof applyBtn !== 'undefined' && applyBtn) { applyBtn.textContent = '运行'; applyBtn.classList.remove('running'); }
+          return;
+        }
+        if (currentRow < 0) return;
+
+        const col = autoMoves[autoStep]; // 0 => left road(a), 1 => right road(b)
+        const idx = currentRow * rowSize + col;
+        if (idx < 0 || idx >= cards.length) {
+          autoRunning = false;
+          return;
+        }
+
+        const card = cards[idx];
+        const w = 98, h = 86;
+
+        selectedIdx = idx;
+        targetGateIdx = idx;
+        jumping = true;
+        jumpFrom = [playerPos[0], playerPos[1]];
+        jumpTo = [card.x, card.y + h / 2 - 10];
+        jumpStartMs = performance.now();
+      }
+
+      function startAuto(moves, initialCoins) {
+        resetState(initialCoins);
+        autoMoves = moves.slice();
+        autoStep = 0;
+        autoRunning = true;
+        triggerAutoJump(); // first jump
+      }
+
+      function computeGateRectsAndDraw(timeSeconds, nowMs) {
+        // Draw gates + collect hit rects.
+        gateRects = [];
+        for (let idx = 0; idx < cards.length; idx++) {
+          const card = cards[idx];
+          const rowIdx = Math.floor(idx / rowSize);
+          const enabled = (!levelDone) && (rowIdx === currentRow);
+
+          const showIcon = !usedCardsIdx.has(idx);
+          const rect = drawGate(card, idx, timeSeconds, {
+            selected: idx === selectedIdx,
+            enabled,
+            showIcon,
+          });
+
+          gateRects.push({ idx, ...rect });
+        }
+      }
+
+      function drawGate(card, idx, t, { selected, enabled, showIcon }) {
+        const w = 98, h = 86;
+        const rect = {
+          x: card.x - w / 2,
+          y: card.y - h / 2,
+          w,
+          h,
+        };
+
+        const hasLabel = card.label && card.label.trim() !== "";
+        // Optional prefix: if label starts with space, hide card but use label for icon.
+        const forceHideCard = card.label && card.label.startsWith(" ");
+
+        if (hasLabel && !forceHideCard) {
+          // Soft shadow under gate.
+          ctx.save();
+          ctx.globalAlpha = 0.35;
+          ctx.fillStyle = "rgb(19,50,92)";
+          drawRoundedRect(ctx, rect.x - 9, rect.y - 9, w + 18, h + 18, 18);
+          ctx.fill();
+          ctx.restore();
+
+          const borderColor = selected ? "rgb(101,168,247)" : "rgb(137,183,238)";
+          // Card body.
+          ctx.save();
+          drawRoundedRect(ctx, rect.x, rect.y, rect.w, rect.h, 18);
+          ctx.fillStyle = "rgb(188,220,255)";
+          ctx.fill();
+          ctx.lineWidth = selected ? 3 : 2;
+          ctx.strokeStyle = borderColor;
+          ctx.stroke();
+          ctx.restore();
+
+          // Panel.
+          const panel = {
+            x: rect.x + 8,
+            y: rect.y + 42,
+            w: rect.w - 16,
+            h: 33,
+          };
+          ctx.save();
+          drawRoundedRect(ctx, panel.x, panel.y, panel.w, panel.h, 10);
+          ctx.fillStyle = "rgb(225,241,255)";
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgb(164,196,234)";
+          ctx.stroke();
+          ctx.restore();
+
+          // Label.
+          ctx.save();
+          ctx.font = "44px sans-serif";
+          ctx.fillStyle = "rgb(76,107,152)";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(card.label.trim(), panel.x + panel.w / 2, panel.y + panel.h / 2);
+          ctx.restore();
+        }
+
+        if (!showIcon) return rect;
+
+        const phase = card.y * 0.01 + card.x * 0.005;
+        const coinCenterX = rect.x + rect.w / 2;
+        const coinCenterY = rect.y + 6;
+
+        const isBomb = labelUsesBombIcon(card.label);
+        const reward = isBomb ? false : isRewardCoin(card.label);
+
+        const pulseSpeed = isBomb ? 2.8 : (reward ? 4.6 : 2.0);
+        const pulseAmp = isBomb ? 0.03 : (reward ? 0.045 : 0.01);
+        const pulse = 1.0 + Math.sin(t * pulseSpeed + phase) * pulseAmp;
+
+        // NEW SCALES: Coins 90%, Bombs 115%
+        const r = isBomb ? (29 * 1.15) : (29 * 0.9);
+        const rr = r * pulse;
+        const size = rr * 2;
+
+        // Drop shadow (shared) - tighter multipliers to avoid 'oversized' look
+        ctx.save();
+        ctx.globalAlpha = isBomb ? 0.35 : (reward ? 0.4 : 0.3); // Slightly lighter
+        ctx.fillStyle = isBomb ? "rgba(10,10,10,0.8)" : (reward ? "rgba(160,105,20,1)" : "rgba(92,82,70,1)");
+        ctx.beginPath();
+        // decouple shadow scale from rr a bit to make it look 'compact'
+        const sW = rr * (isBomb ? 0.8 : 0.9); 
+        const sH = rr * (isBomb ? 0.4 : 0.55);
+        ctx.ellipse(coinCenterX, coinCenterY + rr * 1.1, sW, sH, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        if (isBomb) {
+          ctx.save();
+          ctx.drawImage(textures.bomb, coinCenterX - size / 2, coinCenterY - size / 2, size, size);
+          ctx.restore();
+        } else {
+          // Coin image.
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.drawImage(textures.coin, coinCenterX - size / 2, coinCenterY - size / 2, size, size);
+          if (!reward) {
+            ctx.fillStyle = "rgba(78,90,110,0.60)";
+            ctx.beginPath();
+            ctx.arc(coinCenterX, coinCenterY, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+
+          // Outer rim ring.
+          ctx.save();
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(coinCenterX, coinCenterY, rr * 0.98, 0, Math.PI * 2);
+          ctx.strokeStyle = reward ? "rgb(232,151,26)" : "rgb(126,138,154)";
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(coinCenterX, coinCenterY, rr * 0.82, 0, Math.PI * 2);
+          ctx.strokeStyle = reward ? "rgb(255,235,157)" : "rgb(168,177,189)";
+          ctx.stroke();
+          ctx.restore();
+        }
+        return rect;
+      }
+
+      function drawPlayer() {
+        const idx = playerSpriteIndex(coins);
+        const img = textures.players[idx];
+        if (!img) return;
+
+        const w = img.width;
+        const h = img.height;
+        const x = playerPos[0] - w / 2;
+        const y = playerPos[1] - h;
+        ctx.drawImage(img, x, y);
+      }
+
+      function drawUI() {
+        // Panel background.
+        const panelX = 10, panelY = 10, panelW = 132, panelH = 42;
+        ctx.save();
+        drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 10);
+        ctx.fillStyle = "rgb(236,246,255)";
+        ctx.globalAlpha = 0.95;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgb(167,195,236)";
+        ctx.stroke();
+        ctx.restore();
+
+        // Title + value.
+        ctx.save();
+        ctx.font = "22px sans-serif";
+        ctx.fillStyle = "rgb(66,95,140)";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText("Coins", panelX + 10, panelY + 10);
+
+        ctx.font = "22px sans-serif";
+        ctx.fillStyle = "rgb(26,59,108)";
+        ctx.fillText(String(coins), panelX + 78, panelY + 10);
+        ctx.restore();
+
+        let hintText = " ";
+        if (levelDone) hintText = "完成! 按下 R 重新开始.";
+        else if (jumping) hintText = "跳跃中...";
+        else if (autoRunning) hintText = "运行中...";
+
+        ctx.save();
+        ctx.font = "24px sans-serif";
+        ctx.fillStyle = "rgb(88,116,155)";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(hintText, 16, sh - 26);
+        ctx.restore();
+      }
+
+      function updateAndMaybeLand(nowMs) {
+        if (!jumping) return;
+        const elapsed = nowMs - jumpStartMs;
+        const p = Math.min(1, elapsed / jumpDurationMs);
+        const lift = Math.sin(p * Math.PI) * 74;
+
+        playerPos[0] = jumpFrom[0] + (jumpTo[0] - jumpFrom[0]) * p;
+        playerPos[1] = jumpFrom[1] + (jumpTo[1] - jumpFrom[1]) * p - lift;
+
+        if (p >= 1) {
+          jumping = false;
+          playerPos[0] = jumpTo[0];
+          playerPos[1] = jumpTo[1];
+
+          if (targetGateIdx !== null) {
+            const target = cards[targetGateIdx];
+            const label = target.label;
+            coins = applyGateEffectFn(coins, target.label);
+            usedCardsIdx.add(targetGateIdx);
+
+            currentRow -= 1;
+            if (currentRow < 0) levelDone = true;
+
+            // Play sound based on icon type (bomb or coin).
+            const isBomb = labelUsesBombIcon(label);
+            const snd = isBomb ? sounds.sfxBomb : sounds.sfxCoin;
+            if (snd) {
+              try {
+                snd.currentTime = 0;
+                void snd.play();
+              } catch {
+                // Ignore audio errors (autoplay restrictions / etc.).
+              }
+            }
+          }
+          targetGateIdx = null;
+          selectedIdx = null;
+
+          // Auto-play next move after landing.
+          if (autoRunning) {
+            if (levelDone) {
+              autoRunning = false;
+              if (typeof applyBtn !== 'undefined' && applyBtn) { applyBtn.textContent = '运行'; applyBtn.classList.remove('running'); }
+            } else {
+              autoStep += 1;
+              autoJumpTimer = setTimeout(() => {
+                if (autoRunning && !jumping) triggerAutoJump();
+              }, 400);
+            }
+          }
+        }
+      }
+
+      function handleClick(mx, my) {
+        if (levelDone || jumping) return;
+        // gateRects are from last frame.
+        for (const g of gateRects) {
+          const rowIdx = Math.floor(g.idx / rowSize);
+          if (rowIdx !== currentRow) continue;
+          const inside = mx >= g.x && mx <= (g.x + g.w) && my >= g.y && my <= (g.y + g.h);
+          if (inside) {
+            selectedIdx = g.idx;
+            jumping = true;
+            jumpFrom = [playerPos[0], playerPos[1]];
+            jumpTo = [g.x + g.w / 2, g.y + g.h - 10];
+            jumpStartMs = performance.now();
+            targetGateIdx = g.idx;
+            break;
+          }
+        }
+      }
+
+      // Input wiring
+      window.addEventListener("keydown", (e) => {
+        // Avoid interrupting student typing.
+        const active = document.activeElement;
+        const isTyping = active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT");
+
+        if (e.key === "r" || e.key === "R") {
+          if (!isTyping) resetState(lastInitialCoins);
+        } else if (e.key === "Escape") {
+          // Let browser handle refresh/esc; we keep it simple.
+          // (You can change this behavior if you want ESC to restart.)
+        }
+      });
+
+      // No mouse input in auto-play mode.
+
+      applyBtn.addEventListener("click", () => {
+        if (autoRunning || jumping) {
+          resetState(lastInitialCoins);
+          setStatus("已停止运行");
+          return;
+        }
+
+        const code = editor.getValue();
+        const requiredMoves = Math.floor(cards.length / rowSize); // 4 rows => 4 moves
+        const moves = parseMovesFromCode(code);
+
+        const config = LEVELS_CONFIG[currentLevelIdx];
+        let initialCoins = config.initialCoins !== null && config.initialCoins !== undefined ? config.initialCoins : 0;
+        if (currentLevelIdx === 2 || currentLevelIdx === 3) {
+          let parsedCoins = parseInitialCoinsFromCode(code, null);
+          if (parsedCoins === null) {
+            setStatus("请在预设区域正确设置初始金币数量！");
+            applyBtn.classList.remove("running");
+            applyBtn.textContent = "运行";
+            return;
+          }
+          initialCoins = parsedCoins;
+        }
+        lastInitialCoins = initialCoins;
+
+        if (moves.length !== requiredMoves) {
+          setStatus(
+            `Please write exactly ${requiredMoves} jumps like: jump(a); jump(b); ... (found ${moves.length}).`
+          );
+          return;
+        }
+
+        startAuto(moves, initialCoins);
+        setStatus("Running...");
+        applyBtn.textContent = "停止";
+        applyBtn.classList.add("running");
+      });
+
+      resetBtn.addEventListener("click", () => resetState(lastInitialCoins));
+
+      document.getElementById("levelTabs").addEventListener("click", (e) => {
+        if (e.target.tagName === "BUTTON") {
+          const idx = parseInt(e.target.getAttribute("data-level"), 10);
+          if (!isNaN(idx)) {
+            loadLevel(idx);
+          }
+        }
+      });
+
+      async function loadAllAssets() {
+        try {
+          const [bgImg, bg1Img, bg3Img, coinImg, bombImg, ...playerImgs] = await Promise.all([
+            loadImage(ASSETS.bg),
+            loadImage(ASSETS.bg1),
+            loadImage(ASSETS.bg3),
+            loadImage(ASSETS.coin),
+            loadImage(ASSETS.bomb),
+            ...ASSETS.players.map(loadImage),
+          ]);
+
+          textures.bg = bgImg;
+          textures.bg1 = bg1Img;
+          textures.bg3 = bg3Img;
+
+          // Prepare coin texture (circular mask).
+          textures.coin = canvasCircleMask(coinImg, 128);
+
+          // Prepare bomb texture (no mask, square).
+          textures.bomb = canvasScale(bombImg, 128, 128);
+
+          // Prepare players (scale to maxHeight=92, preserve aspect).
+          textures.players = playerImgs.map((img) => {
+            const maxH = 92;
+            const iw = img.naturalWidth || img.width;
+            const ih = img.naturalHeight || img.height;
+            const scale = maxH / ih;
+            const w = Math.max(1, Math.floor(iw * scale));
+            const h = Math.max(1, Math.floor(ih * scale));
+            return canvasScale(img, w, h);
+          });
+
+          // Sounds.
+          sounds.sfxCoin = safeAudio(ASSETS.sfxCoin);
+          sounds.sfxBomb = safeAudio(ASSETS.sfxBomb);
+        } catch (e) {
+          setStatus("Asset load failed. Check assets paths. " + (e && e.message ? e.message : String(e)));
+          throw e;
+        }
+      }
+
+      function drawBackground() {
+        let bgImg = textures.bg;
+        if (rowSize === 3 && textures.bg3) bgImg = textures.bg3;
+        if (rowSize === 1 && textures.bg1) bgImg = textures.bg1;
+        if (!bgImg) return;
+
+        const iw = bgImg.naturalWidth || bgImg.width;
+        const ih = bgImg.naturalHeight || bgImg.height;
+        const scale = Math.max(sw / iw, sh / ih);
+        const nw = iw * scale;
+        const nh = ih * scale;
+        const nx = (sw - nw) / 2;
+        const ny = (sh - nh) / 2;
+        ctx.drawImage(bgImg, nx, ny, nw, nh);
+      }
+
+      function drawGentleOverlay(timeSeconds) {
+        const glowAlpha = (28 + Math.floor(Math.sin(timeSeconds * 2.0) * 8)) / 255;
+        ctx.save();
+        ctx.globalAlpha = glowAlpha;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, sw, sh);
+        ctx.restore();
+      }
+
+      function renderLoop(nowMs) {
+        const t = nowMs / 1000;
+
+        // Update jump animation & landing.
+        if (jumping) {
+          updateAndMaybeLand(nowMs);
+        }
+
+        // Background & overlay.
+        ctx.clearRect(0, 0, sw, sh);
+        drawBackground();
+        drawGentleOverlay(t);
+
+        // Gates
+        computeGateRectsAndDraw(t, nowMs);
+
+        // Player
+        drawPlayer();
+
+        // UI
+        drawUI();
+
+        requestAnimationFrame(renderLoop);
+      }
+
+      async function start() {
+        setStatus("Loading assets...");
+        await loadAllAssets();
+
+        applyGateEffectFn = defaultApplyGateEffect;
+        loadLevel(0);
+        setStatus("Ready. Click Run to execute jump(a) / jump(b).");
+        requestAnimationFrame(renderLoop);
+      }
+
+      // Start after DOM ready
+      start();
+    })();
+  </script>
+</body>
+
+</html>
