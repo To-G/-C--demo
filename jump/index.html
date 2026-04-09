@@ -45,14 +45,14 @@
       background: #8e8cd8;
       border-right: 1px solid var(--border);
       padding: 16px;
-      padding-bottom: 96px; /* Increased padding for safer button clearance */
+      padding-bottom: 120px; /* Much larger padding to protect button area */
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 12px;
       box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
       position: relative;
-      overflow: hidden; /* Ensure pane content stays within 100vh */
+      overflow: hidden;
     }
 
     .level-tabs {
@@ -144,7 +144,7 @@
 
     .editor-bottom-controls {
       position: absolute;
-      bottom: 24px;
+      bottom: 40px; /* Moved up from 24px */
       right: 24px;
       display: flex;
       gap: 12px;
@@ -196,7 +196,7 @@
 
     .btn-hand {
       position: absolute;
-      bottom: 24px;
+      bottom: 40px; /* Moved up to match other buttons */
       left: 24px;
       width: 44px;
       height: 44px;
