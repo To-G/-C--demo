@@ -45,18 +45,20 @@
       background: #8e8cd8;
       border-right: 1px solid var(--border);
       padding: 16px;
-      padding-bottom: 80px;
+      padding-bottom: 96px; /* Increased padding for safer button clearance */
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 12px;
       box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
       position: relative;
+      overflow: hidden; /* Ensure pane content stays within 100vh */
     }
 
     .level-tabs {
       display: flex;
       gap: 8px;
+      flex-shrink: 0; /* Don't let tabs shrink */
     }
 
     .level-tabs button {
@@ -77,7 +79,8 @@
 
     .CodeMirror {
       flex: 1;
-      height: auto;
+      height: 0; /* Important for flex-shrink growth */
+      min-height: 0;
       border-radius: 12px;
       font-family: Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace !important;
       font-size: 15px;
